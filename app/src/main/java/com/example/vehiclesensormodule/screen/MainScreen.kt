@@ -1,11 +1,8 @@
 package com.example.vehiclesensormodule.screen
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.vehiclesensormodule.camera.CameraPreview
 
 @Composable
 fun MainScreen(
@@ -102,28 +98,6 @@ fun MainScreen(
             Text(
                 text = "Enter this pairing code on the dashboard.",
                 style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
-        Divider()
-
-        // --------------------------------------------------
-        // CAMERA
-        // --------------------------------------------------
-
-        Text(
-            text = "📷 Camera",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(250.dp)
-        ) {
-
-            CameraPreview(
-                modifier = Modifier.fillMaxSize()
             )
         }
 

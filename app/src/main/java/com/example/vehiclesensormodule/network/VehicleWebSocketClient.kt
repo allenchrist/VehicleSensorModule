@@ -44,7 +44,7 @@ class VehicleWebSocketClient(context: Context) {
     // Vehicle assigned by backend
     var onVehicleAssigned: ((String) -> Unit)? = null
 
-    // NEW: Pairing code received from backend
+    // Pairing code received from backend
     var onPairingCodeReceived: ((String) -> Unit)? = null
 
     // Fleet update callback
@@ -87,7 +87,23 @@ class VehicleWebSocketClient(context: Context) {
     fun connect() {
 
         if (isConnected) {
-            Log.d(TAG, "Already connected")
+            Log.d(
+                TAG,
+                "Already connected — ignoring connect()"
+            )
+            return
+        }
+
+        // --------------------------------------------------
+        // Prevent another connection while one is already
+        // being established.
+        // --------------------------------------------------
+
+        if (webSocket != null) {
+            Log.d(
+                TAG,
+                "WebSocket already exists — waiting for current connection"
+            )
             return
         }
 
@@ -97,10 +113,15 @@ class VehicleWebSocketClient(context: Context) {
 
         Log.d(
             TAG,
+            "CONNECT() called"
+        )
+
+        Log.d(
+            TAG,
             "Connecting to: ${ServerConfig.VEHICLE_WS_URL}"
         )
 
-        webSocket = client.newWebSocket(
+        val newSocket = client.newWebSocket(
             request,
             object : WebSocketListener() {
 
@@ -111,8 +132,12 @@ class VehicleWebSocketClient(context: Context) {
 
                     Log.d(
                         TAG,
-                        "WebSocket CONNECTED"
+                        "WebSocket CONNECTED — socket=$webSocket"
                     )
+
+                    // This callback belongs to the current socket
+                    this@VehicleWebSocketClient.webSocket =
+                        webSocket
 
                     isConnected = true
 
@@ -142,7 +167,10 @@ class VehicleWebSocketClient(context: Context) {
 
                     Log.d(
                         TAG,
-                        "WebSocket CLOSING: code=$code reason=$reason"
+                        "WebSocket CLOSING — " +
+                                "socket=$webSocket " +
+                                "code=$code " +
+                                "reason=$reason"
                     )
                 }
 
@@ -154,14 +182,39 @@ class VehicleWebSocketClient(context: Context) {
 
                     Log.d(
                         TAG,
-                        "WebSocket CLOSED: code=$code reason=$reason"
+                        "WebSocket CLOSED — " +
+                                "socket=$webSocket " +
+                                "code=$code " +
+                                "reason=$reason"
                     )
 
-                    isConnected = false
+                    // Only clear state if this is still
+                    // the active socket.
+                    if (
+                        this@VehicleWebSocketClient.webSocket ===
+                        webSocket
+                    ) {
 
-                    onConnectionChanged?.invoke(false)
+                        this@VehicleWebSocketClient.webSocket =
+                            null
 
-                    this@VehicleWebSocketClient.webSocket = null
+                        isConnected = false
+
+                        onConnectionChanged?.invoke(false)
+
+                        Log.d(
+                            TAG,
+                            "Active WebSocket cleared"
+                        )
+
+                    } else {
+
+                        Log.d(
+                            TAG,
+                            "Old WebSocket closed — " +
+                                    "current connection preserved"
+                        )
+                    }
                 }
 
                 override fun onFailure(
@@ -172,7 +225,9 @@ class VehicleWebSocketClient(context: Context) {
 
                     Log.e(
                         TAG,
-                        "WebSocket ERROR: ${t.message}",
+                        "WebSocket FAILURE — " +
+                                "socket=$webSocket " +
+                                "message=${t.message}",
                         t
                     )
 
@@ -181,13 +236,45 @@ class VehicleWebSocketClient(context: Context) {
                         "HTTP response: ${response?.code}"
                     )
 
-                    isConnected = false
+                    // Only clear state if this is still
+                    // the active socket.
+                    if (
+                        this@VehicleWebSocketClient.webSocket ===
+                        webSocket
+                    ) {
 
-                    onConnectionChanged?.invoke(false)
+                        this@VehicleWebSocketClient.webSocket =
+                            null
 
-                    this@VehicleWebSocketClient.webSocket = null
+                        isConnected = false
+
+                        onConnectionChanged?.invoke(false)
+
+                        Log.d(
+                            TAG,
+                            "Active WebSocket cleared after failure"
+                        )
+
+                    } else {
+
+                        Log.d(
+                            TAG,
+                            "Old WebSocket failed — " +
+                                    "current connection preserved"
+                        )
+                    }
                 }
             }
+        )
+
+        // Store the socket immediately so another
+        // connect() call cannot create another socket
+        // while this one is connecting.
+        webSocket = newSocket
+
+        Log.d(
+            TAG,
+            "WebSocket instance created — socket=$newSocket"
         )
     }
 
@@ -256,11 +343,11 @@ class VehicleWebSocketClient(context: Context) {
                     val assignedVehicleId =
                         json.optString("vehicleId")
 
-                    // NEW: Read pairing code
                     val assignedPairingCode =
                         json.optString("pairingCode")
 
-                    vehicleId = assignedVehicleId
+                    vehicleId =
+                        assignedVehicleId
 
                     pairingCode =
                         assignedPairingCode
@@ -280,7 +367,6 @@ class VehicleWebSocketClient(context: Context) {
                         "Vehicle ID: $assignedVehicleId"
                     )
 
-                    // NEW: Log pairing code
                     Log.d(
                         TAG,
                         "Pairing Code: $assignedPairingCode"
@@ -290,8 +376,9 @@ class VehicleWebSocketClient(context: Context) {
                         assignedVehicleId
                     )
 
-                    // NEW: Send pairing code to UI
-                    if (assignedPairingCode.isNotEmpty()) {
+                    if (
+                        assignedPairingCode.isNotEmpty()
+                    ) {
 
                         onPairingCodeReceived?.invoke(
                             assignedPairingCode
@@ -353,93 +440,115 @@ class VehicleWebSocketClient(context: Context) {
             val vehicles =
                 mutableListOf<VehicleData>()
 
-            for (i in 0 until vehiclesArray.length()) {
+            for (
+            i in 0 until vehiclesArray.length()
+            ) {
 
                 val vehicle =
                     vehiclesArray.getJSONObject(i)
 
-                val vehicleData = VehicleData(
+                val vehicleData =
+                    VehicleData(
 
-                    vehicleId =
-                        vehicle.optString(
-                            "vehicleId"
-                        ),
+                        vehicleId =
+                            vehicle.optString(
+                                "vehicleId"
+                            ),
 
-                    lat =
-                        if (vehicle.isNull("lat"))
-                            null
-                        else
-                            vehicle.optDouble("lat"),
+                        lat =
+                            if (vehicle.isNull("lat"))
+                                null
+                            else
+                                vehicle.optDouble("lat"),
 
-                    lon =
-                        if (vehicle.isNull("lon"))
-                            null
-                        else
-                            vehicle.optDouble("lon"),
+                        lon =
+                            if (vehicle.isNull("lon"))
+                                null
+                            else
+                                vehicle.optDouble("lon"),
 
-                    heading =
-                        if (vehicle.isNull("heading"))
-                            null
-                        else
-                            vehicle.optDouble("heading"),
+                        heading =
+                            if (vehicle.isNull("heading"))
+                                null
+                            else
+                                vehicle.optDouble(
+                                    "heading"
+                                ),
 
-                    accelX =
-                        if (vehicle.isNull("accelX"))
-                            null
-                        else
-                            vehicle.optDouble("accelX"),
+                        accelX =
+                            if (vehicle.isNull("accelX"))
+                                null
+                            else
+                                vehicle.optDouble(
+                                    "accelX"
+                                ),
 
-                    accelY =
-                        if (vehicle.isNull("accelY"))
-                            null
-                        else
-                            vehicle.optDouble("accelY"),
+                        accelY =
+                            if (vehicle.isNull("accelY"))
+                                null
+                            else
+                                vehicle.optDouble(
+                                    "accelY"
+                                ),
 
-                    accelZ =
-                        if (vehicle.isNull("accelZ"))
-                            null
-                        else
-                            vehicle.optDouble("accelZ"),
+                        accelZ =
+                            if (vehicle.isNull("accelZ"))
+                                null
+                            else
+                                vehicle.optDouble(
+                                    "accelZ"
+                                ),
 
-                    gyroX =
-                        if (vehicle.isNull("gyroX"))
-                            null
-                        else
-                            vehicle.optDouble("gyroX"),
+                        gyroX =
+                            if (vehicle.isNull("gyroX"))
+                                null
+                            else
+                                vehicle.optDouble(
+                                    "gyroX"
+                                ),
 
-                    gyroY =
-                        if (vehicle.isNull("gyroY"))
-                            null
-                        else
-                            vehicle.optDouble("gyroY"),
+                        gyroY =
+                            if (vehicle.isNull("gyroY"))
+                                null
+                            else
+                                vehicle.optDouble(
+                                    "gyroY"
+                                ),
 
-                    gyroZ =
-                        if (vehicle.isNull("gyroZ"))
-                            null
-                        else
-                            vehicle.optDouble("gyroZ"),
+                        gyroZ =
+                            if (vehicle.isNull("gyroZ"))
+                                null
+                            else
+                                vehicle.optDouble(
+                                    "gyroZ"
+                                ),
 
-                    connected =
-                        vehicle.optBoolean(
-                            "connected",
-                            false
-                        ),
+                        connected =
+                            vehicle.optBoolean(
+                                "connected",
+                                false
+                            ),
 
-                    lastReceivedAt =
-                        if (vehicle.isNull("lastReceivedAt"))
-                            null
-                        else
-                            vehicle.optLong(
-                                "lastReceivedAt"
+                        lastReceivedAt =
+                            if (
+                                vehicle.isNull(
+                                    "lastReceivedAt"
+                                )
                             )
-                )
+                                null
+                            else
+                                vehicle.optLong(
+                                    "lastReceivedAt"
+                                )
+                    )
 
                 vehicles.add(vehicleData)
             }
 
             Log.d(
                 TAG,
-                "Fleet update received: ${vehicles.size} vehicles"
+                "Fleet update received: " +
+                        "${vehicles.size} vehicles"
             )
 
             for (vehicle in vehicles) {
@@ -454,7 +563,9 @@ class VehicleWebSocketClient(context: Context) {
                 )
             }
 
-            onFleetUpdate?.invoke(vehicles)
+            onFleetUpdate?.invoke(
+                vehicles
+            )
 
         } catch (e: Exception) {
 
@@ -482,62 +593,109 @@ class VehicleWebSocketClient(context: Context) {
         gyroZ: Float
     ) {
 
-        val socket = webSocket
+        val socket =
+            webSocket
 
-        if (!isConnected || socket == null) {
+        // --------------------------------------------------
+        // Connection check
+        // --------------------------------------------------
+
+        if (
+            !isConnected ||
+            socket == null
+        ) {
+
+            Log.d(
+                TAG,
+                "TELEMETRY NOT SENT — " +
+                        "connected=$isConnected " +
+                        "socket=${socket != null}"
+            )
+
             return
         }
 
-        val telemetry = JSONObject().apply {
+        // --------------------------------------------------
+        // Build telemetry packet
+        // --------------------------------------------------
 
-            put(
-                "lat",
-                latitude
+        val telemetry =
+            JSONObject().apply {
+
+                put(
+                    "lat",
+                    latitude
+                )
+
+                put(
+                    "lon",
+                    longitude
+                )
+
+                put(
+                    "heading",
+                    heading.toDouble()
+                )
+
+                put(
+                    "accelX",
+                    accelX.toDouble()
+                )
+
+                put(
+                    "accelY",
+                    accelY.toDouble()
+                )
+
+                put(
+                    "accelZ",
+                    accelZ.toDouble()
+                )
+
+                put(
+                    "gyroX",
+                    gyroX.toDouble()
+                )
+
+                put(
+                    "gyroY",
+                    gyroY.toDouble()
+                )
+
+                put(
+                    "gyroZ",
+                    gyroZ.toDouble()
+                )
+            }
+
+        // --------------------------------------------------
+        // DEBUG
+        // --------------------------------------------------
+
+        Log.d(
+            TAG,
+            "SENDING TELEMETRY — " +
+                    "socket=$socket " +
+                    "vehicle=$vehicleId"
+        )
+
+        Log.d(
+            TAG,
+            "TELEMETRY DATA: $telemetry"
+        )
+
+        // --------------------------------------------------
+        // Send
+        // --------------------------------------------------
+
+        val success =
+            socket.send(
+                telemetry.toString()
             )
 
-            put(
-                "lon",
-                longitude
-            )
-
-            put(
-                "heading",
-                heading.toDouble()
-            )
-
-            put(
-                "accelX",
-                accelX.toDouble()
-            )
-
-            put(
-                "accelY",
-                accelY.toDouble()
-            )
-
-            put(
-                "accelZ",
-                accelZ.toDouble()
-            )
-
-            put(
-                "gyroX",
-                gyroX.toDouble()
-            )
-
-            put(
-                "gyroY",
-                gyroY.toDouble()
-            )
-
-            put(
-                "gyroZ",
-                gyroZ.toDouble()
-            )
-        }
-
-        val success = socket.send(
-            telemetry.toString()
+        Log.d(
+            TAG,
+            "Telemetry send result: $success"
         )
 
         if (!success) {
@@ -557,7 +715,7 @@ class VehicleWebSocketClient(context: Context) {
 
         Log.d(
             TAG,
-            "Disconnecting WebSocket"
+            "Disconnecting WebSocket — socket=$webSocket"
         )
 
         webSocket?.close(

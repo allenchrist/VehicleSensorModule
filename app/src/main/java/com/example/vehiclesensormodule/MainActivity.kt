@@ -172,7 +172,6 @@ class MainActivity : ComponentActivity() {
             // --------------------------------------------------
 
             LaunchedEffect(Unit) {
-
                 vehicleWebSocketClient.connect()
             }
 
@@ -188,16 +187,11 @@ class MainActivity : ComponentActivity() {
                         Manifest.permission.ACCESS_FINE_LOCATION
                     ) == PackageManager.PERMISSION_GRANTED
 
-                val cameraPermission =
-                    ContextCompat.checkSelfPermission(
-                        this@MainActivity,
-                        Manifest.permission.CAMERA
-                    ) == PackageManager.PERMISSION_GRANTED
+                // --------------------------------------------------
+                // Camera permission removed
+                // --------------------------------------------------
 
-                if (
-                    locationPermission &&
-                    cameraPermission
-                ) {
+                if (locationPermission) {
 
                     // --------------------------------------------------
                     // GPS
@@ -264,8 +258,7 @@ class MainActivity : ComponentActivity() {
                     ActivityCompat.requestPermissions(
                         this@MainActivity,
                         arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.CAMERA
+                            Manifest.permission.ACCESS_FINE_LOCATION
                         ),
                         100
                     )
