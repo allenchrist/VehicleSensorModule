@@ -10,6 +10,9 @@ import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
+import com.example.vehiclesensormodule.auth.LoginScreen
+import com.example.vehiclesensormodule.auth.SessionManager
+import com.example.vehiclesensormodule.auth.SignupScreen
 import com.example.vehiclesensormodule.network.VehicleWebSocketClient
 import com.example.vehiclesensormodule.screen.MainScreen
 import com.example.vehiclesensormodule.sensors.AccelerometerManager
@@ -31,9 +34,16 @@ class MainActivity : ComponentActivity() {
     private lateinit var compassManager: CompassManager
 
     private lateinit var vehicleWebSocketClient: VehicleWebSocketClient
+    private lateinit var sessionManager: SessionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // --------------------------------------------------
+        // Initialize session manager
+        // --------------------------------------------------
+
+        sessionManager = SessionManager(this)
 
         // --------------------------------------------------
         // Initialize sensors
@@ -56,246 +66,362 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
-            var latitude by remember {
-                mutableStateOf(0.0)
+            var isLoggedIn by remember {
+                mutableStateOf(sessionManager.isLoggedIn())
             }
 
-            var longitude by remember {
-                mutableStateOf(0.0)
-            }
-
-            var accelX by remember {
-                mutableStateOf(0f)
-            }
-
-            var accelY by remember {
-                mutableStateOf(0f)
-            }
-
-            var accelZ by remember {
-                mutableStateOf(0f)
-            }
-
-            var gyroX by remember {
-                mutableStateOf(0f)
-            }
-
-            var gyroY by remember {
-                mutableStateOf(0f)
-            }
-
-            var gyroZ by remember {
-                mutableStateOf(0f)
-            }
-
-            var heading by remember {
-                mutableStateOf(0f)
-            }
-
-            // --------------------------------------------------
-            // Vehicle information
-            // --------------------------------------------------
-
-            var vehicleId by remember {
-                mutableStateOf("")
-            }
-
-            var pairingCode by remember {
-                mutableStateOf("")
-            }
-
-            var backendConnected by remember {
+            var showSignup by remember {
                 mutableStateOf(false)
             }
 
-            val deviceIp = remember {
-                NetworkUtils.getDeviceIpAddress()
-            }
+            VehicleSensorModuleTheme {
 
-            // --------------------------------------------------
-            // WebSocket callbacks
-            //
-            // IMPORTANT:
-            // These are assigned BEFORE connect().
-            // --------------------------------------------------
+                // --------------------------------------------------
+                // AUTHENTICATION
+                // --------------------------------------------------
 
-            DisposableEffect(Unit) {
+                if (!isLoggedIn) {
 
-                vehicleWebSocketClient.onConnectionChanged = { connected ->
+                    if (showSignup) {
 
-                    Log.d(
-                        TAG,
-                        "Backend connection: ${
-                            if (connected) {
-                                "CONNECTED"
-                            } else {
-                                "DISCONNECTED"
+                        // --------------------------------------------------
+                        // SIGNUP SCREEN
+                        // --------------------------------------------------
+
+                        SignupScreen(
+
+                            onSignupSuccess = {
+
+                                Log.d(
+                                    TAG,
+                                    "Signup successful"
+                                )
+
+                                // Return to Login screen
+                                showSignup = false
+                            },
+
+                            onBackToLogin = {
+
+                                Log.d(
+                                    TAG,
+                                    "Returning to Login screen"
+                                )
+
+                                showSignup = false
                             }
-                        }"
-                    )
-
-                    backendConnected = connected
-                }
-
-                vehicleWebSocketClient.onVehicleAssigned = {
-                        assignedVehicleId ->
-
-                    Log.d(
-                        TAG,
-                        "Vehicle assigned by backend: $assignedVehicleId"
-                    )
-
-                    vehicleId = assignedVehicleId
-                }
-
-                vehicleWebSocketClient.onPairingCodeReceived = {
-                        code ->
-
-                    Log.d(
-                        TAG,
-                        "Pairing code received: $code"
-                    )
-
-                    pairingCode = code
-                }
-
-                onDispose {
-
-                    vehicleWebSocketClient.onConnectionChanged = null
-                    vehicleWebSocketClient.onVehicleAssigned = null
-                    vehicleWebSocketClient.onPairingCodeReceived = null
-                }
-            }
-
-            // --------------------------------------------------
-            // Connect AFTER callbacks are ready
-            // --------------------------------------------------
-
-            LaunchedEffect(Unit) {
-                vehicleWebSocketClient.connect()
-            }
-
-            // --------------------------------------------------
-            // Start sensors
-            // --------------------------------------------------
-
-            LaunchedEffect(Unit) {
-
-                val locationPermission =
-                    ContextCompat.checkSelfPermission(
-                        this@MainActivity,
-                        Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == PackageManager.PERMISSION_GRANTED
-
-                // --------------------------------------------------
-                // Camera permission removed
-                // --------------------------------------------------
-
-                if (locationPermission) {
-
-                    // --------------------------------------------------
-                    // GPS
-                    // --------------------------------------------------
-
-                    gpsManager.startLocationUpdates { location ->
-
-                        latitude = location.latitude
-                        longitude = location.longitude
-
-                        vehicleWebSocketClient.sendTelemetry(
-
-                            latitude = location.latitude,
-
-                            longitude = location.longitude,
-
-                            heading = heading,
-
-                            accelX = accelX,
-                            accelY = accelY,
-                            accelZ = accelZ,
-
-                            gyroX = gyroX,
-                            gyroY = gyroY,
-                            gyroZ = gyroZ
                         )
-                    }
 
-                    // --------------------------------------------------
-                    // Accelerometer
-                    // --------------------------------------------------
+                    } else {
 
-                    accelerometerManager.startListening {
-                            x, y, z ->
+                        // --------------------------------------------------
+                        // LOGIN SCREEN
+                        // --------------------------------------------------
 
-                        accelX = x
-                        accelY = y
-                        accelZ = z
-                    }
+                        LoginScreen(
 
-                    // --------------------------------------------------
-                    // Gyroscope
-                    // --------------------------------------------------
+                            onLoginSuccess = { token, username, _ ->
 
-                    gyroscopeManager.startListening {
-                            x, y, z ->
+                                sessionManager.saveSession(
+                                    token = token,
+                                    username = username
+                                )
 
-                        gyroX = x
-                        gyroY = y
-                        gyroZ = z
-                    }
+                                Log.d(
+                                    TAG,
+                                    "Login successful for user: $username"
+                                )
 
-                    // --------------------------------------------------
-                    // Compass
-                    // --------------------------------------------------
+                                isLoggedIn = true
+                            },
 
-                    compassManager.startListening {
+                            onCreateAccount = {
 
-                        heading = it
+                                Log.d(
+                                    TAG,
+                                    "Create Account clicked"
+                                )
+
+                                showSignup = true
+                            }
+                        )
                     }
 
                 } else {
 
-                    ActivityCompat.requestPermissions(
-                        this@MainActivity,
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                        ),
-                        100
+                    // --------------------------------------------------
+                    // AUTHENTICATED VEHICLE SCREEN
+                    // --------------------------------------------------
+
+                    VehicleScreen(
+                        onLogout = {
+
+                            Log.d(
+                                TAG,
+                                "Logging out user: ${sessionManager.getUsername()}"
+                            )
+
+                            // Clear saved JWT and username
+                            sessionManager.clearSession()
+
+                            // Disconnect vehicle WebSocket
+                            vehicleWebSocketClient.disconnect()
+
+                            // Return to Login screen
+                            isLoggedIn = false
+
+                            // Make sure Signup is not displayed
+                            showSignup = false
+                        }
                     )
                 }
             }
+        }
+    }
 
-            // --------------------------------------------------
-            // UI
-            // --------------------------------------------------
+    // ==========================================================
+    // VEHICLE SCREEN
+    // ==========================================================
 
-            VehicleSensorModuleTheme {
+    @Composable
+    private fun VehicleScreen(
+        onLogout: () -> Unit
+    ) {
 
-                MainScreen(
+        var latitude by remember {
+            mutableStateOf(0.0)
+        }
 
-                    latitude = latitude,
-                    longitude = longitude,
+        var longitude by remember {
+            mutableStateOf(0.0)
+        }
 
-                    accelX = accelX,
-                    accelY = accelY,
-                    accelZ = accelZ,
+        var accelX by remember {
+            mutableStateOf(0f)
+        }
 
-                    gyroX = gyroX,
-                    gyroY = gyroY,
-                    gyroZ = gyroZ,
+        var accelY by remember {
+            mutableStateOf(0f)
+        }
 
-                    heading = heading,
+        var accelZ by remember {
+            mutableStateOf(0f)
+        }
 
-                    deviceIp = deviceIp,
+        var gyroX by remember {
+            mutableStateOf(0f)
+        }
 
-                    vehicleId = vehicleId,
+        var gyroY by remember {
+            mutableStateOf(0f)
+        }
 
-                    pairingCode = pairingCode,
+        var gyroZ by remember {
+            mutableStateOf(0f)
+        }
 
-                    backendConnected = backendConnected
+        var heading by remember {
+            mutableStateOf(0f)
+        }
+
+        // --------------------------------------------------
+        // Vehicle information
+        // --------------------------------------------------
+
+        var vehicleId by remember {
+            mutableStateOf("")
+        }
+
+        var pairingCode by remember {
+            mutableStateOf("")
+        }
+
+        var backendConnected by remember {
+            mutableStateOf(false)
+        }
+
+        val deviceIp = remember {
+            NetworkUtils.getDeviceIpAddress()
+        }
+
+        // --------------------------------------------------
+        // WebSocket callbacks
+        //
+        // IMPORTANT:
+        // These are assigned BEFORE connect().
+        // --------------------------------------------------
+
+        DisposableEffect(Unit) {
+
+            vehicleWebSocketClient.onConnectionChanged = { connected ->
+
+                Log.d(
+                    TAG,
+                    "Backend connection: ${
+                        if (connected) {
+                            "CONNECTED"
+                        } else {
+                            "DISCONNECTED"
+                        }
+                    }"
+                )
+
+                backendConnected = connected
+            }
+
+            vehicleWebSocketClient.onVehicleAssigned = {
+                    assignedVehicleId ->
+
+                Log.d(
+                    TAG,
+                    "Vehicle assigned by backend: $assignedVehicleId"
+                )
+
+                vehicleId = assignedVehicleId
+            }
+
+            vehicleWebSocketClient.onPairingCodeReceived = {
+                    code ->
+
+                Log.d(
+                    TAG,
+                    "Pairing code received: $code"
+                )
+
+                pairingCode = code
+            }
+
+            onDispose {
+
+                vehicleWebSocketClient.onConnectionChanged = null
+                vehicleWebSocketClient.onVehicleAssigned = null
+                vehicleWebSocketClient.onPairingCodeReceived = null
+            }
+        }
+
+        // --------------------------------------------------
+        // Connect AFTER callbacks are ready
+        // --------------------------------------------------
+
+        LaunchedEffect(Unit) {
+
+            vehicleWebSocketClient.connect()
+        }
+
+        // --------------------------------------------------
+        // Start sensors
+        // --------------------------------------------------
+
+        LaunchedEffect(Unit) {
+
+            val locationPermission =
+                ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+
+            if (locationPermission) {
+
+                // --------------------------------------------------
+                // GPS
+                // --------------------------------------------------
+
+                gpsManager.startLocationUpdates { location ->
+
+                    latitude = location.latitude
+                    longitude = location.longitude
+
+                    vehicleWebSocketClient.sendTelemetry(
+
+                        latitude = location.latitude,
+
+                        longitude = location.longitude,
+
+                        heading = heading,
+
+                        accelX = accelX,
+                        accelY = accelY,
+                        accelZ = accelZ,
+
+                        gyroX = gyroX,
+                        gyroY = gyroY,
+                        gyroZ = gyroZ
+                    )
+                }
+
+                // --------------------------------------------------
+                // Accelerometer
+                // --------------------------------------------------
+
+                accelerometerManager.startListening {
+                        x, y, z ->
+
+                    accelX = x
+                    accelY = y
+                    accelZ = z
+                }
+
+                // --------------------------------------------------
+                // Gyroscope
+                // --------------------------------------------------
+
+                gyroscopeManager.startListening {
+                        x, y, z ->
+
+                    gyroX = x
+                    gyroY = y
+                    gyroZ = z
+                }
+
+                // --------------------------------------------------
+                // Compass
+                // --------------------------------------------------
+
+                compassManager.startListening {
+
+                    heading = it
+                }
+
+            } else {
+
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ),
+                    100
                 )
             }
         }
+
+        // --------------------------------------------------
+        // UI
+        // --------------------------------------------------
+
+        MainScreen(
+
+            latitude = latitude,
+            longitude = longitude,
+
+            accelX = accelX,
+            accelY = accelY,
+            accelZ = accelZ,
+
+            gyroX = gyroX,
+            gyroY = gyroY,
+            gyroZ = gyroZ,
+
+            heading = heading,
+
+            deviceIp = deviceIp,
+
+            vehicleId = vehicleId,
+            pairingCode = pairingCode,
+
+            backendConnected = backendConnected,
+
+            onLogout = onLogout
+        )
     }
 
     // ------------------------------------------------------
