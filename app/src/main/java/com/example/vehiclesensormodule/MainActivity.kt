@@ -4,15 +4,20 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
+
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 
 import com.example.vehiclesensormodule.auth.LoginScreen
 import com.example.vehiclesensormodule.auth.SessionManager
 import com.example.vehiclesensormodule.auth.SignupScreen
+import com.example.vehiclesensormodule.network.ApiClient
+import com.example.vehiclesensormodule.network.DeviceAssociationRequest
 import com.example.vehiclesensormodule.network.VehicleWebSocketClient
 import com.example.vehiclesensormodule.screen.MainScreen
 import com.example.vehiclesensormodule.sensors.AccelerometerManager
@@ -21,6 +26,9 @@ import com.example.vehiclesensormodule.sensors.GPSManager
 import com.example.vehiclesensormodule.sensors.GyroscopeManager
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
 import com.example.vehiclesensormodule.utils.NetworkUtils
+
+import kotlinx.coroutines.launch
+
 
 class MainActivity : ComponentActivity() {
 
@@ -36,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var vehicleWebSocketClient: VehicleWebSocketClient
     private lateinit var sessionManager: SessionManager
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -44,6 +53,7 @@ class MainActivity : ComponentActivity() {
         // --------------------------------------------------
 
         sessionManager = SessionManager(this)
+
 
         // --------------------------------------------------
         // Initialize sensors
@@ -54,11 +64,13 @@ class MainActivity : ComponentActivity() {
         gyroscopeManager = GyroscopeManager(this)
         compassManager = CompassManager(this)
 
+
         // --------------------------------------------------
         // Initialize WebSocket client
         // --------------------------------------------------
 
         vehicleWebSocketClient = VehicleWebSocketClient(this)
+
 
         // --------------------------------------------------
         // Compose UI
@@ -73,6 +85,7 @@ class MainActivity : ComponentActivity() {
             var showSignup by remember {
                 mutableStateOf(false)
             }
+
 
             VehicleSensorModuleTheme {
 
@@ -122,17 +135,107 @@ class MainActivity : ComponentActivity() {
 
                             onLoginSuccess = { token, username, _ ->
 
-                                sessionManager.saveSession(
-                                    token = token,
-                                    username = username
-                                )
+                                lifecycleScope.launch {
 
-                                Log.d(
-                                    TAG,
-                                    "Login successful for user: $username"
-                                )
+                                    try {
 
-                                isLoggedIn = true
+                                        // --------------------------------------------------
+                                        // Get the existing persistent device UUID
+                                        // --------------------------------------------------
+
+                                        val deviceId =
+                                            vehicleWebSocketClient.getDeviceId()
+
+                                        Log.d(
+                                            TAG,
+                                            "Associating user $username with device $deviceId"
+                                        )
+
+
+                                        // --------------------------------------------------
+                                        // Associate authenticated user with device
+                                        // --------------------------------------------------
+
+                                        val response =
+                                            ApiClient.authService.associateDevice(
+                                                authorization = "Bearer $token",
+                                                request = DeviceAssociationRequest(
+                                                    deviceId = deviceId
+                                                )
+                                            )
+
+
+                                        // --------------------------------------------------
+                                        // Association successful
+                                        // --------------------------------------------------
+
+                                        if (
+                                            response.isSuccessful &&
+                                            response.body() != null
+                                        ) {
+
+                                            val responseBody =
+                                                response.body()
+
+                                            Log.d(
+                                                TAG,
+                                                "Device association successful: " +
+                                                        "${responseBody?.deviceId}"
+                                            )
+
+
+                                            // --------------------------------------------------
+                                            // Save session only after association succeeds
+                                            // --------------------------------------------------
+
+                                            sessionManager.saveSession(
+                                                token = token,
+                                                username = username
+                                            )
+
+                                            Log.d(
+                                                TAG,
+                                                "Login successful for user: $username"
+                                            )
+
+
+                                            // --------------------------------------------------
+                                            // Continue to vehicle screen
+                                            // --------------------------------------------------
+
+                                            isLoggedIn = true
+
+                                        } else {
+
+                                            Log.e(
+                                                TAG,
+                                                "Device association failed: " +
+                                                        "HTTP ${response.code()} " +
+                                                        "${response.errorBody()?.string()}"
+                                            )
+
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Unable to associate this device with your account.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+
+                                    } catch (e: Exception) {
+
+                                        Log.e(
+                                            TAG,
+                                            "Device association error",
+                                            e
+                                        )
+
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Connection error. Please try again.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
                             },
 
                             onCreateAccount = {
@@ -154,6 +257,7 @@ class MainActivity : ComponentActivity() {
                     // --------------------------------------------------
 
                     VehicleScreen(
+
                         onLogout = {
 
                             Log.d(
@@ -161,14 +265,18 @@ class MainActivity : ComponentActivity() {
                                 "Logging out user: ${sessionManager.getUsername()}"
                             )
 
+
                             // Clear saved JWT and username
                             sessionManager.clearSession()
+
 
                             // Disconnect vehicle WebSocket
                             vehicleWebSocketClient.disconnect()
 
+
                             // Return to Login screen
                             isLoggedIn = false
+
 
                             // Make sure Signup is not displayed
                             showSignup = false
@@ -178,6 +286,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
     // ==========================================================
     // VEHICLE SCREEN
@@ -224,6 +333,7 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(0f)
         }
 
+
         // --------------------------------------------------
         // Vehicle information
         // --------------------------------------------------
@@ -240,9 +350,11 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(false)
         }
 
+
         val deviceIp = remember {
             NetworkUtils.getDeviceIpAddress()
         }
+
 
         // --------------------------------------------------
         // WebSocket callbacks
@@ -269,6 +381,7 @@ class MainActivity : ComponentActivity() {
                 backendConnected = connected
             }
 
+
             vehicleWebSocketClient.onVehicleAssigned = {
                     assignedVehicleId ->
 
@@ -279,6 +392,7 @@ class MainActivity : ComponentActivity() {
 
                 vehicleId = assignedVehicleId
             }
+
 
             vehicleWebSocketClient.onPairingCodeReceived = {
                     code ->
@@ -291,6 +405,7 @@ class MainActivity : ComponentActivity() {
                 pairingCode = code
             }
 
+
             onDispose {
 
                 vehicleWebSocketClient.onConnectionChanged = null
@@ -298,6 +413,7 @@ class MainActivity : ComponentActivity() {
                 vehicleWebSocketClient.onPairingCodeReceived = null
             }
         }
+
 
         // --------------------------------------------------
         // Connect AFTER callbacks are ready
@@ -307,6 +423,7 @@ class MainActivity : ComponentActivity() {
 
             vehicleWebSocketClient.connect()
         }
+
 
         // --------------------------------------------------
         // Start sensors
@@ -320,6 +437,7 @@ class MainActivity : ComponentActivity() {
                     Manifest.permission.ACCESS_FINE_LOCATION
                 ) == PackageManager.PERMISSION_GRANTED
 
+
             if (locationPermission) {
 
                 // --------------------------------------------------
@@ -330,6 +448,7 @@ class MainActivity : ComponentActivity() {
 
                     latitude = location.latitude
                     longitude = location.longitude
+
 
                     vehicleWebSocketClient.sendTelemetry(
 
@@ -349,6 +468,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+
                 // --------------------------------------------------
                 // Accelerometer
                 // --------------------------------------------------
@@ -361,6 +481,7 @@ class MainActivity : ComponentActivity() {
                     accelZ = z
                 }
 
+
                 // --------------------------------------------------
                 // Gyroscope
                 // --------------------------------------------------
@@ -372,6 +493,7 @@ class MainActivity : ComponentActivity() {
                     gyroY = y
                     gyroZ = z
                 }
+
 
                 // --------------------------------------------------
                 // Compass
@@ -393,6 +515,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+
 
         // --------------------------------------------------
         // UI
@@ -423,6 +546,7 @@ class MainActivity : ComponentActivity() {
             onLogout = onLogout
         )
     }
+
 
     // ------------------------------------------------------
     // Clean shutdown
