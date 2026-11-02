@@ -15,10 +15,14 @@ class GPSManager(private val context: Context) {
         1000L
     ).build()
 
+    private var locationCallback: LocationCallback? = null
+
     @SuppressLint("MissingPermission")
     fun startLocationUpdates(onLocationReceived: (Location) -> Unit) {
 
-        val locationCallback = object : LocationCallback() {
+        stopLocationUpdates()
+
+        val callback = object : LocationCallback() {
 
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let {
@@ -27,10 +31,21 @@ class GPSManager(private val context: Context) {
             }
         }
 
+        locationCallback = callback
+
         fusedLocationClient.requestLocationUpdates(
             locationRequest,
-            locationCallback,
+            callback,
             null
         )
+    }
+
+    fun stopLocationUpdates() {
+
+        locationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
+        }
+
+        locationCallback = null
     }
 }

@@ -1,6 +1,8 @@
 package com.example.vehiclesensormodule.network
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -21,6 +23,12 @@ class VehicleWebSocketClient(context: Context) {
 
         private const val DEVICE_ID_KEY =
             "device_id"
+
+        private const val MAX_RECONNECT_DELAY_MS = 30_000L
+
+        // Sent by the backend. Reconnecting would not help with these.
+        private const val CLOSE_INVALID_DEVICE = 4001
+        private const val CLOSE_REPLACED = 4002
     }
 
     private val client = OkHttpClient.Builder()
@@ -29,12 +37,27 @@ class VehicleWebSocketClient(context: Context) {
         .pingInterval(15, TimeUnit.SECONDS)
         .build()
 
+    @Volatile
     private var webSocket: WebSocket? = null
+
+    // True from connect() until disconnect()
+    @Volatile
+    private var shouldStayConnected = false
+
+    private var reconnectAttempt = 0
+
+    private val reconnectHandler =
+        Handler(Looper.getMainLooper())
+
+    private val reconnectRunnable = Runnable {
+        connect()
+    }
 
     private var deviceId: String = ""
     private var vehicleId: String? = null
     private var pairingCode: String? = null
 
+    @Volatile
     var isConnected: Boolean = false
         private set
 
@@ -85,6 +108,12 @@ class VehicleWebSocketClient(context: Context) {
     // --------------------------------------------------
 
     fun connect() {
+
+        shouldStayConnected = true
+
+        reconnectHandler.removeCallbacks(
+            reconnectRunnable
+        )
 
         if (isConnected) {
             Log.d(
@@ -141,6 +170,10 @@ class VehicleWebSocketClient(context: Context) {
 
                     isConnected = true
 
+                    reconnectHandler.post {
+                        reconnectAttempt = 0
+                    }
+
                     onConnectionChanged?.invoke(true)
 
                     registerDevice(webSocket)
@@ -171,6 +204,13 @@ class VehicleWebSocketClient(context: Context) {
                                 "socket=$webSocket " +
                                 "code=$code " +
                                 "reason=$reason"
+                    )
+
+                    // onClosed only fires once this side
+                    // has also closed the connection.
+                    webSocket.close(
+                        1000,
+                        null
                     )
                 }
 
@@ -206,6 +246,13 @@ class VehicleWebSocketClient(context: Context) {
                             TAG,
                             "Active WebSocket cleared"
                         )
+
+                        if (
+                            code != CLOSE_INVALID_DEVICE &&
+                            code != CLOSE_REPLACED
+                        ) {
+                            scheduleReconnect()
+                        }
 
                     } else {
 
@@ -255,6 +302,8 @@ class VehicleWebSocketClient(context: Context) {
                             "Active WebSocket cleared after failure"
                         )
 
+                        scheduleReconnect()
+
                     } else {
 
                         Log.d(
@@ -276,6 +325,44 @@ class VehicleWebSocketClient(context: Context) {
             TAG,
             "WebSocket instance created — socket=$newSocket"
         )
+    }
+
+    // --------------------------------------------------
+    // RECONNECT
+    //
+    // Waits 1s, 2s, 4s ... up to 30s between attempts.
+    // --------------------------------------------------
+
+    private fun scheduleReconnect() {
+
+        reconnectHandler.post {
+
+            if (!shouldStayConnected) {
+                return@post
+            }
+
+            val delayMs = minOf(
+                1000L shl minOf(reconnectAttempt, 5),
+                MAX_RECONNECT_DELAY_MS
+            )
+
+            reconnectAttempt++
+
+            Log.d(
+                TAG,
+                "Reconnecting in ${delayMs}ms " +
+                        "(attempt $reconnectAttempt)"
+            )
+
+            reconnectHandler.removeCallbacks(
+                reconnectRunnable
+            )
+
+            reconnectHandler.postDelayed(
+                reconnectRunnable,
+                delayMs
+            )
+        }
     }
 
     // --------------------------------------------------
@@ -590,7 +677,10 @@ class VehicleWebSocketClient(context: Context) {
         accelZ: Float,
         gyroX: Float,
         gyroY: Float,
-        gyroZ: Float
+        gyroZ: Float,
+        speed: Float?,
+        bearing: Float?,
+        accuracy: Float?
     ) {
 
         val socket =
@@ -666,23 +756,19 @@ class VehicleWebSocketClient(context: Context) {
                     "gyroZ",
                     gyroZ.toDouble()
                 )
+
+                speed?.let {
+                    put("speed", it.toDouble())
+                }
+
+                bearing?.let {
+                    put("bearing", it.toDouble())
+                }
+
+                accuracy?.let {
+                    put("accuracy", it.toDouble())
+                }
             }
-
-        // --------------------------------------------------
-        // DEBUG
-        // --------------------------------------------------
-
-        Log.d(
-            TAG,
-            "SENDING TELEMETRY — " +
-                    "socket=$socket " +
-                    "vehicle=$vehicleId"
-        )
-
-        Log.d(
-            TAG,
-            "TELEMETRY DATA: $telemetry"
-        )
 
         // --------------------------------------------------
         // Send
@@ -692,11 +778,6 @@ class VehicleWebSocketClient(context: Context) {
             socket.send(
                 telemetry.toString()
             )
-
-        Log.d(
-            TAG,
-            "Telemetry send result: $success"
-        )
 
         if (!success) {
 
@@ -716,6 +797,12 @@ class VehicleWebSocketClient(context: Context) {
         Log.d(
             TAG,
             "Disconnecting WebSocket — socket=$webSocket"
+        )
+
+        shouldStayConnected = false
+
+        reconnectHandler.removeCallbacks(
+            reconnectRunnable
         )
 
         webSocket?.close(

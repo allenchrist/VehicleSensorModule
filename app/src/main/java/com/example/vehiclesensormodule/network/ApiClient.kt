@@ -10,6 +10,7 @@ object ApiClient {
 
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.HEADERS
+        redactHeader("Authorization")
     }
 
     private val client = OkHttpClient.Builder()

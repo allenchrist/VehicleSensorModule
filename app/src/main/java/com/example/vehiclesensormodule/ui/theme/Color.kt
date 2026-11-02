@@ -2,10 +2,20 @@ package com.example.vehiclesensormodule.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// Matches the web dashboard, so the phone and car screen look like one product
+val Background = Color(0xFF05080C)
+val SurfaceCard = Color(0xFF0D131A)
+val SurfaceRaised = Color(0xFF151D26)
+val OutlineSubtle = Color(0xFF232E3A)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val TextPrimary = Color(0xFFF2F5F7)
+val TextSecondary = Color(0xFFA6B1BB)
+val TextMuted = Color(0xFF7F8C98)
+
+val Accent = Color(0xFF56C7FF)
+val AccentDeep = Color(0xFF1E88C7)
+val OnAccent = Color(0xFF04202E)
+
+val Success = Color(0xFF43D17A)
+val Warning = Color(0xFFF2B84B)
+val Danger = Color(0xFFFF5C63)
