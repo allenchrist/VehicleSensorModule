@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
 import com.example.vehiclesensormodule.service.SensorReadings
 import com.example.vehiclesensormodule.ui.components.AppCard
+import com.example.vehiclesensormodule.ui.components.BrandMark
+import com.example.vehiclesensormodule.ui.components.StatusDot
 import com.example.vehiclesensormodule.ui.components.CardShape
 import com.example.vehiclesensormodule.ui.components.ControlShape
 import com.example.vehiclesensormodule.ui.components.PrimaryButton
@@ -69,6 +72,7 @@ import com.example.vehiclesensormodule.ui.theme.SurfaceRaised
 import com.example.vehiclesensormodule.ui.theme.TextMuted
 import com.example.vehiclesensormodule.ui.theme.TextSecondary
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
+import kotlin.math.roundToInt
 import com.example.vehiclesensormodule.ui.theme.Warning
 
 data class DriveState(
@@ -83,7 +87,6 @@ data class DriveState(
     val hasRecentFix: Boolean,
     val latitude: Double,
     val longitude: Double,
-    val speedKmh: Float?,
     val accuracyMetres: Float?,
     val heading: Float,
     val sensors: SensorReadings
@@ -106,8 +109,8 @@ private enum class DriveStatus(
     ),
     SharingOff(
         Warning,
-        "Sharing is off",
-        "Your car screen and nearby vehicles can't see you."
+        "Not connected",
+        "Connect to share your position with your car screen and nearby vehicles."
     ),
     Connecting(
         Warning,
@@ -128,8 +131,8 @@ private enum class DriveStatus(
 
 private fun DriveState.status(): DriveStatus = when {
     !locationAllowed -> DriveStatus.LocationOff
-    !phoneLocationOn -> DriveStatus.PhoneLocationOff
     !sharingOn -> DriveStatus.SharingOff
+    !phoneLocationOn -> DriveStatus.PhoneLocationOff
     !backendConnected -> DriveStatus.Connecting
     !hasRecentFix -> DriveStatus.SearchingGps
     else -> DriveStatus.Live
@@ -146,7 +149,8 @@ fun MainScreen(
     onAllowLocation: () -> Unit,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
-    onStartSharing: () -> Unit = {},
+    onConnect: () -> Unit = {},
+    onDisconnect: () -> Unit = {},
     onOpenLocationSettings: () -> Unit = {},
     onAllowNoBatteryLimits: () -> Unit = {},
     onOpenBatterySaver: () -> Unit = {}
@@ -162,8 +166,8 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
             TopBar(
@@ -173,17 +177,17 @@ fun MainScreen(
 
             StatusHero(
                 status = status,
-                vehicleId = state.vehicleId,
                 onAllowLocation = onAllowLocation,
                 onOpenSettings = onOpenSettings,
-                onStartSharing = onStartSharing,
+                onConnect = onConnect,
+                onDisconnect = onDisconnect,
                 onOpenLocationSettings = onOpenLocationSettings
             )
 
             if (state.batterySaverOn) {
                 PowerWarningCard(
                     title = "Battery Saver is on",
-                    detail = "It can delay your position while the screen is locked. Turn it off while driving.",
+                    detail = "It can delay your position while the screen is locked.",
                     buttonText = "Open Battery Saver",
                     onClick = onOpenBatterySaver
                 )
@@ -192,49 +196,15 @@ fun MainScreen(
             if (state.batteryLimited) {
                 PowerWarningCard(
                     title = "Battery limits are on",
-                    detail = "Android can delay your position while the screen is locked. Remove the limits for this app.",
+                    detail = "Android can delay your position while the screen is locked.",
                     buttonText = "Remove limits",
                     onClick = onAllowNoBatteryLimits
                 )
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                val live = status == DriveStatus.Live
+            ConnectionCard(state = state)
 
-                StatTile(
-                    label = "Speed",
-                    value = state.speedKmh
-                        ?.takeIf { live }
-                        ?.let { "%.0f".format(it) } ?: "—",
-                    unit = "km/h",
-                    icon = R.drawable.ic_speed,
-                    modifier = Modifier.weight(1f)
-                )
-
-                StatTile(
-                    label = "Accuracy",
-                    value = state.accuracyMetres
-                        ?.takeIf { live }
-                        ?.let { "%.0f".format(it) } ?: "—",
-                    unit = "m",
-                    icon = R.drawable.ic_my_location,
-                    modifier = Modifier.weight(1f)
-                )
-
-                StatTile(
-                    label = "Facing",
-                    value = "%.0f°".format(state.heading),
-                    unit = compassPoint(state.heading),
-                    icon = R.drawable.ic_explore,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            CarScreenCard(username = state.username)
-
-            TipCard()
+            GuideCard(username = state.username)
 
             SensorDetailsCard(state = state)
 
@@ -276,12 +246,21 @@ private fun TopBar(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        BrandMark(size = 40.dp, iconSize = 22.dp)
+
+        Spacer(modifier = Modifier.width(12.dp))
+
         Column(modifier = Modifier.weight(1f)) {
-            SectionLabel("Connected Vehicle")
+            Text(
+                text = "Connected Vehicle",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+                maxLines = 1
+            )
 
             Text(
                 text = username,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleMedium,
                 maxLines = 1
             )
         }
@@ -300,10 +279,10 @@ private fun TopBar(
 @Composable
 private fun StatusHero(
     status: DriveStatus,
-    vehicleId: String,
     onAllowLocation: () -> Unit,
     onOpenSettings: () -> Unit,
-    onStartSharing: () -> Unit,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
     onOpenLocationSettings: () -> Unit
 ) {
     val color by animateColorAsState(status.color, label = "statusColor")
@@ -312,94 +291,110 @@ private fun StatusHero(
         modifier = Modifier.fillMaxWidth(),
         shape = CardShape,
         color = SurfaceCard,
-        border = BorderStroke(1.dp, color.copy(alpha = 0.35f))
+        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(color.copy(alpha = 0.06f))
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(color.copy(alpha = 0.07f))
+                .padding(16.dp)
         ) {
 
-            PulsingCar(
-                color = color,
-                pulsing =
-                    status != DriveStatus.LocationOff &&
-                        status != DriveStatus.PhoneLocationOff &&
-                        status != DriveStatus.SharingOff
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = status.title,
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = status.detail,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
-            )
-
-            if (status == DriveStatus.LocationOff) {
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                PrimaryButton(
-                    text = "Allow location",
-                    onClick = onAllowLocation
+                PulsingCar(
+                    color = color,
+                    pulsing =
+                        status != DriveStatus.LocationOff &&
+                            status != DriveStatus.PhoneLocationOff &&
+                            status != DriveStatus.SharingOff
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
-                OutlinedButton(
-                    onClick = onOpenSettings,
-                    shape = ControlShape,
-                    border = BorderStroke(1.dp, OutlineSubtle),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Open settings", color = TextSecondary)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = status.title,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = status.detail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            when (status) {
+
+                DriveStatus.LocationOff -> {
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    PrimaryButton(
+                        text = "Allow location",
+                        onClick = onAllowLocation
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = onOpenSettings,
+                        shape = ControlShape,
+                        border = BorderStroke(1.dp, OutlineSubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Open settings", color = TextSecondary)
+                    }
                 }
 
-            } else if (status == DriveStatus.PhoneLocationOff) {
+                DriveStatus.PhoneLocationOff -> {
 
-                Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                PrimaryButton(
-                    text = "Open location settings",
-                    onClick = onOpenLocationSettings
-                )
+                    PrimaryButton(
+                        text = "Open location settings",
+                        onClick = onOpenLocationSettings
+                    )
 
-            } else if (status == DriveStatus.SharingOff) {
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Spacer(modifier = Modifier.height(18.dp))
+                    DisconnectButton(onDisconnect)
+                }
 
-                PrimaryButton(
-                    text = "Start sharing",
-                    onClick = onStartSharing
-                )
+                DriveStatus.SharingOff -> {
 
-            } else if (vehicleId.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                Spacer(modifier = Modifier.height(14.dp))
+                    PrimaryButton(
+                        text = "Connect",
+                        onClick = onConnect
+                    )
+                }
 
-                Text(
-                    text = vehicleId,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(SurfaceRaised)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                )
+                else -> {
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    DisconnectButton(onDisconnect)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun DisconnectButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = ControlShape,
+        border = BorderStroke(1.dp, OutlineSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Disconnect", color = TextSecondary)
     }
 }
 
@@ -421,14 +416,14 @@ private fun PulsingCar(
     )
 
     Box(
-        modifier = Modifier.size(96.dp),
+        modifier = Modifier.size(60.dp),
         contentAlignment = Alignment.Center
     ) {
         if (pulsing) {
             Box(
                 modifier = Modifier
-                    .size(96.dp)
-                    .scale(0.7f + 0.3f * progress)
+                    .size(60.dp)
+                    .scale(0.75f + 0.25f * progress)
                     .background(
                         color.copy(alpha = 0.28f * (1f - progress)),
                         CircleShape
@@ -438,62 +433,24 @@ private fun PulsingCar(
 
         Box(
             modifier = Modifier
-                .size(64.dp)
-                .background(color.copy(alpha = 0.16f), CircleShape),
+                .size(46.dp)
+                .background(color.copy(alpha = 0.18f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_car),
                 contentDescription = null,
                 tint = color,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
 
-@Composable
-private fun StatTile(
-    label: String,
-    value: String,
-    unit: String,
-    @DrawableRes icon: Int,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = SurfaceCard,
-        border = BorderStroke(1.dp, OutlineSubtle)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Icon(
-                painter = painterResource(icon),
-                contentDescription = null,
-                tint = Accent,
-                modifier = Modifier.size(18.dp)
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                maxLines = 1
-            )
-
-            Text(
-                text = "$label · $unit",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
-                maxLines = 1
-            )
-        }
-    }
-}
-
+/**
+ * A short notice with one action. It stays small, so it doesn't push
+ * the driver's main information off the screen.
+ */
 @Composable
 private fun PowerWarningCard(
     title: String,
@@ -501,96 +458,219 @@ private fun PowerWarningCard(
     buttonText: String,
     onClick: () -> Unit
 ) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = CardShape,
+        color = SurfaceCard,
+        border = BorderStroke(1.dp, Warning.copy(alpha = 0.35f))
+    ) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_error),
+                    contentDescription = null,
+                    tint = Warning,
+                    modifier = Modifier.size(20.dp)
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            TextButton(
+                onClick = onClick,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text(buttonText, style = MaterialTheme.typography.titleSmall)
+            }
+        }
+    }
+}
+
+private fun gpsQuality(state: DriveState): Pair<String, Color> {
+    val accuracy = state.accuracyMetres
+
+    return when {
+        !state.sharingOn -> "Off" to TextMuted
+        !state.locationAllowed || !state.phoneLocationOn -> "Off" to Danger
+        !state.hasRecentFix -> "Searching…" to Warning
+        accuracy == null || accuracy <= 15f -> "Good" to Success
+        accuracy <= 50f -> "Fair" to Warning
+        else -> "Weak" to Warning
+    }
+}
+
+@Composable
+private fun ConnectionCard(state: DriveState) {
+
+    val (gpsText, gpsColor) = gpsQuality(state)
+
     AppCard {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = Warning
+        SectionLabel("Connection")
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        if (state.vehicleId.isNotEmpty()) {
+            ConnectionRow(
+                label = "Vehicle",
+                value = state.vehicleId.replace("VEHICLE_", "Vehicle ")
+            )
+
+            RowDivider()
+        }
+
+        ConnectionRow(
+            label = "Server",
+            value = when {
+                !state.sharingOn -> "Not connected"
+                state.backendConnected -> "Connected"
+                else -> "Connecting…"
+            },
+            dot = when {
+                !state.sharingOn -> TextMuted
+                state.backendConnected -> Success
+                else -> Warning
+            }
         )
 
-        Spacer(modifier = Modifier.height(2.dp))
+        RowDivider()
+
+        ConnectionRow(
+            label = "GPS",
+            value = gpsText,
+            dot = gpsColor
+        )
+
+        RowDivider()
+
+        ConnectionRow(
+            label = "Sharing",
+            value = if (state.sharingOn) "On" else "Off",
+            dot = if (state.sharingOn) Success else TextMuted
+        )
+
+        RowDivider()
+
+        ConnectionRow(
+            label = "Facing",
+            value = compassPoint(state.heading)
+        )
+    }
+}
+
+@Composable
+private fun ConnectionRow(
+    label: String,
+    value: String,
+    dot: Color? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            modifier = Modifier.weight(1f)
+        )
+
+        if (dot != null) {
+            StatusDot(dot)
+
+            Spacer(modifier = Modifier.width(8.dp))
+        }
 
         Text(
-            text = detail,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
+            text = value,
+            style = MaterialTheme.typography.titleSmall
+        )
+    }
+}
+
+@Composable
+private fun RowDivider() {
+    HorizontalDivider(color = OutlineSubtle)
+}
+
+@Composable
+private fun GuideCard(username: String) {
+    AppCard {
+        GuideRow(
+            icon = R.drawable.ic_monitor,
+            title = "Your car screen",
+            detail = "Open the dashboard website and log in as $username to see alerts and other vehicles."
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        PrimaryButton(
-            text = buttonText,
-            onClick = onClick
+        RowDivider()
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        GuideRow(
+            icon = R.drawable.ic_lock,
+            title = "You can lock your phone",
+            detail = "Sharing carries on with the screen off. To stop it, tap Disconnect, use the notification, close the app from recent apps or log out."
         )
     }
 }
 
 @Composable
-private fun CarScreenCard(username: String) {
-    AppCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconTile(R.drawable.ic_monitor)
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column {
-                Text(
-                    text = "Your car screen",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = "Open the dashboard website at /$username to see alerts and other vehicles.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-            }
+private fun GuideRow(
+    @DrawableRes icon: Int,
+    title: String,
+    detail: String
+) {
+    Row {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(Accent.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = null,
+                tint = Accent,
+                modifier = Modifier.size(20.dp)
+            )
         }
-    }
-}
 
-@Composable
-private fun TipCard() {
-    AppCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconTile(R.drawable.ic_lock)
+        Spacer(modifier = Modifier.width(12.dp))
 
-            Spacer(modifier = Modifier.width(14.dp))
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall
+            )
 
-            Column {
-                Text(
-                    text = "You can lock your phone",
-                    style = MaterialTheme.typography.titleMedium
-                )
+            Spacer(modifier = Modifier.height(2.dp))
 
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = "Sharing carries on with the screen off. To stop it, close the app from recent apps, use the notification or log out.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-            }
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
         }
-    }
-}
-
-@Composable
-private fun IconTile(@DrawableRes icon: Int) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .background(Accent.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = Accent,
-            modifier = Modifier.size(22.dp)
-        )
     }
 }
 
@@ -723,7 +803,6 @@ private val PreviewState = DriveState(
     hasRecentFix = true,
     latitude = 10.958063,
     longitude = 76.956192,
-    speedKmh = 24f,
     accuracyMetres = 6f,
     heading = 92f,
     sensors = SensorReadings(0.12f, -0.08f, 9.78f, 0.01f, 0.02f, -0.01f)

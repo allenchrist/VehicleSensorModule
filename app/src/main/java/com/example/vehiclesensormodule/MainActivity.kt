@@ -20,7 +20,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.lifecycleScope
@@ -58,6 +57,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var sessionManager: SessionManager
 
     private var locationPermissionGranted by mutableStateOf(false)
+
+    // The driver tapped Connect and location hasn't been allowed yet
+    private var connectAfterPermission by mutableStateOf(false)
 
     private val locationPermissionRequest =
         registerForActivityResult(
@@ -317,6 +319,25 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    private fun connect() {
+
+        if (locationPermissionGranted) {
+            startSharing()
+        } else {
+            connectAfterPermission = true
+            requestLocationPermission()
+        }
+    }
+
+
+    private fun disconnect() {
+
+        connectAfterPermission = false
+
+        VehicleTrackingService.stop(this)
+    }
+
+
     private fun startSharing() {
 
         try {
@@ -425,13 +446,6 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(true)
         }
 
-        // Starts sharing once per opening of this screen. After Stop sharing
-        // on the notification, rotating the phone doesn't start it again.
-        var startedSharing by rememberSaveable {
-            mutableStateOf(false)
-        }
-
-
         // Notices when GPS updates have stopped arriving, and
         // when the settings that can stop or delay them change
         LaunchedEffect(Unit) {
@@ -453,15 +467,11 @@ class MainActivity : ComponentActivity() {
         }
 
 
-        LaunchedEffect(locationPermissionGranted) {
+        LaunchedEffect(locationPermissionGranted, connectAfterPermission) {
 
-            if (!locationPermissionGranted) {
+            if (locationPermissionGranted && connectAfterPermission) {
 
-                requestLocationPermission()
-
-            } else if (!startedSharing) {
-
-                startedSharing = true
+                connectAfterPermission = false
 
                 startSharing()
             }
@@ -480,9 +490,9 @@ class MainActivity : ComponentActivity() {
 
                 backendConnected = tracking.backendConnected,
 
-                locationAllowed = locationPermissionGranted,
+                locationAllowed = locationPermissionGranted || !connectAfterPermission,
 
-                sharingOn = tracking.running || !startedSharing,
+                sharingOn = tracking.running,
 
                 phoneLocationOn = phoneLocationOn,
 
@@ -496,7 +506,6 @@ class MainActivity : ComponentActivity() {
                 latitude = tracking.latitude,
                 longitude = tracking.longitude,
 
-                speedKmh = tracking.speedKmh,
                 accuracyMetres = tracking.accuracyMetres,
 
                 heading = tracking.heading,
@@ -510,7 +519,9 @@ class MainActivity : ComponentActivity() {
 
             onLogout = onLogout,
 
-            onStartSharing = ::startSharing,
+            onConnect = ::connect,
+
+            onDisconnect = ::disconnect,
 
             onOpenLocationSettings = ::openLocationSettings,
 

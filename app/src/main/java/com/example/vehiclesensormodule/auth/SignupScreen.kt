@@ -169,12 +169,12 @@ fun SignupScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Your username also opens your car screen, so pick one that's easy to type.",
-                style = MaterialTheme.typography.bodyLarge,
+                text = "You'll use the same username on your car screen, so pick one that's easy to type.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             errorMessage?.let {
                 MessageBanner(it, MessageKind.Error)
@@ -240,7 +240,7 @@ fun SignupScreen(
                 enabled = !isLoading
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             PrimaryButton(
                 text = "Create account",

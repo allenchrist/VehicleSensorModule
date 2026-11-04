@@ -3,14 +3,14 @@ package com.example.vehiclesensormodule.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Matches the web dashboard, so the phone and car screen look like one product
-val Background = Color(0xFF05080C)
-val SurfaceCard = Color(0xFF0D131A)
-val SurfaceRaised = Color(0xFF151D26)
-val OutlineSubtle = Color(0xFF232E3A)
+val Background = Color(0xFF070B10)
+val SurfaceCard = Color(0xFF0E141B)
+val SurfaceRaised = Color(0xFF18212B)
+val OutlineSubtle = Color(0xFF27323E)
 
 val TextPrimary = Color(0xFFF2F5F7)
-val TextSecondary = Color(0xFFA6B1BB)
-val TextMuted = Color(0xFF7F8C98)
+val TextSecondary = Color(0xFFAEB9C3)
+val TextMuted = Color(0xFF87949F)
 
 val Accent = Color(0xFF56C7FF)
 val AccentDeep = Color(0xFF1E88C7)

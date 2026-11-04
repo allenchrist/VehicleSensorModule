@@ -20,7 +20,6 @@ data class TrackingSnapshot(
     val vehicleId: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
-    val speedKmh: Float? = null,
     val accuracyMetres: Float? = null,
     val heading: Float = 0f,
     val sensors: SensorReadings = SensorReadings(),

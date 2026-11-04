@@ -48,8 +48,6 @@ class VehicleTrackingService : Service() {
 
         private const val ACTION_STOP = "com.example.vehiclesensormodule.STOP_SHARING"
 
-        private const val KMH_PER_MPS = 3.6f
-
         // Sensors report several times a second, more often than a screen needs
         private const val SENSOR_PUBLISH_INTERVAL_MS = 1000L
 
@@ -269,7 +267,6 @@ class VehicleTrackingService : Service() {
             it.copy(
                 latitude = location.latitude,
                 longitude = location.longitude,
-                speedKmh = speed?.times(KMH_PER_MPS),
                 accuracyMetres = accuracy,
                 lastFixAt = System.currentTimeMillis()
             )

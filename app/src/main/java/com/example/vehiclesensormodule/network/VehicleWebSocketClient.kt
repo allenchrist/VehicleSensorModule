@@ -133,7 +133,7 @@ class VehicleWebSocketClient(context: Context) {
                     response: Response
                 ) {
 
-                    Log.d(
+                    Log.i(
                         TAG,
                         "WebSocket CONNECTED — socket=$webSocket"
                     )
@@ -189,7 +189,7 @@ class VehicleWebSocketClient(context: Context) {
                     reason: String
                 ) {
 
-                    Log.d(
+                    Log.i(
                         TAG,
                         "WebSocket CLOSED — " +
                                 "socket=$webSocket " +
@@ -323,7 +323,7 @@ class VehicleWebSocketClient(context: Context) {
 
             reconnectAttempt++
 
-            Log.d(
+            Log.i(
                 TAG,
                 "Reconnecting in ${delayMs}ms " +
                         "(attempt $reconnectAttempt)"

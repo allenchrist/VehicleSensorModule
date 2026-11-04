@@ -31,7 +31,7 @@ import com.example.vehiclesensormodule.network.CONNECTION_ERROR_MESSAGE
 import com.example.vehiclesensormodule.network.LoginRequest
 import com.example.vehiclesensormodule.network.readableError
 import com.example.vehiclesensormodule.ui.components.AppTextField
-import com.example.vehiclesensormodule.ui.components.BrandMark
+import com.example.vehiclesensormodule.ui.components.BrandHeader
 import com.example.vehiclesensormodule.ui.components.FormGap
 import com.example.vehiclesensormodule.ui.components.MessageBanner
 import com.example.vehiclesensormodule.ui.components.MessageKind
@@ -111,9 +111,9 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center
         ) {
 
-            BrandMark()
+            BrandHeader()
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = "Welcome back",
@@ -124,11 +124,11 @@ fun LoginScreen(
 
             Text(
                 text = "Log in to connect your vehicle and pass narrow roads safely.",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             val banner = errorMessage
 
@@ -167,7 +167,7 @@ fun LoginScreen(
                 enabled = !isLoading
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             PrimaryButton(
                 text = "Log in",

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
 import com.example.vehiclesensormodule.ui.theme.Accent
@@ -62,10 +63,10 @@ import com.example.vehiclesensormodule.ui.theme.TextMuted
 import com.example.vehiclesensormodule.ui.theme.TextPrimary
 import com.example.vehiclesensormodule.ui.theme.TextSecondary
 
-val CardShape = RoundedCornerShape(20.dp)
-val ControlShape = RoundedCornerShape(14.dp)
+val CardShape = RoundedCornerShape(16.dp)
+val ControlShape = RoundedCornerShape(12.dp)
 
-private val ControlHeight = 54.dp
+private val ControlHeight = 52.dp
 
 /** Full-screen background that stays clear of the status bar and keyboard. */
 @Composable
@@ -78,7 +79,7 @@ fun ScreenBackground(
             .background(Background)
             .background(
                 Brush.radialGradient(
-                    colors = listOf(Accent.copy(alpha = 0.13f), Color.Transparent),
+                    colors = listOf(Accent.copy(alpha = 0.08f), Color.Transparent),
                     center = Offset(0f, 0f),
                     radius = 1100f
                 )
@@ -93,12 +94,14 @@ fun ScreenBackground(
 
 @Composable
 fun BrandMark(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    size: Dp = 44.dp,
+    iconSize: Dp = 24.dp
 ) {
     Box(
         modifier = modifier
-            .size(64.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .size(size)
+            .clip(RoundedCornerShape(size * 0.3f))
             .background(Brush.linearGradient(listOf(Accent, AccentDeep))),
         contentAlignment = Alignment.Center
     ) {
@@ -106,7 +109,26 @@ fun BrandMark(
             painter = painterResource(R.drawable.ic_car),
             contentDescription = null,
             tint = OnAccent,
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(iconSize)
+        )
+    }
+}
+
+/** The product's mark and name, at the top of the login and signup screens. */
+@Composable
+fun BrandHeader(
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        BrandMark()
+
+        Text(
+            text = "Connected Vehicle",
+            style = MaterialTheme.typography.titleMedium
         )
     }
 }
@@ -123,7 +145,7 @@ fun AppCard(
         border = BorderStroke(1.dp, OutlineSubtle)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(16.dp),
             content = content
         )
     }

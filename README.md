@@ -37,7 +37,7 @@ Keep the key and its password safe. A phone can only update the app with the sam
 ## Use it
 
 1. Create an account, then log in.
-2. Allow location, and allow notifications so you can see the **Stop sharing** button.
+2. Tap **Connect**. Allow location, and allow notifications so you can see the **Stop sharing** button.
 3. If the app shows **Battery limits are on** or **Battery Saver is on**, follow its button. These can delay your position while the screen is locked.
 4. Open the dashboard website and log in with the same account.
 
@@ -49,12 +49,13 @@ Each phone needs its own account. Logging in on a new phone moves the account to
 |---|---|
 | Lock the screen | Continues |
 | Press Home or switch to another app | Continues |
+| Tap **Disconnect** | Stops |
 | Close the app from recent apps | Stops |
 | Tap **Stop sharing** on the notification | Stops |
 | Log out | Stops |
-| Open the app again after it stopped | Starts again |
+| Open the app again after it stopped | Stays off until you tap **Connect** |
 
-After restarting the phone, sharing starts again when you open the app. Android doesn't let an app start tracking location without being opened.
+After restarting the phone, open the app and tap **Connect** to start sharing again.
 
 ## How it's organised
 
@@ -110,4 +111,4 @@ GitHub also builds the app and runs these on every push. Results are in the repo
 | Car updates lag with the screen locked | Turn Battery Saver off, and remove the battery limits. Mobile data is also more dependable than Wi-Fi |
 | No **Stop sharing** button | Allow notifications for this app in the phone's settings |
 | Logged out unexpectedly | The account was probably used on another phone, or the 30-day login expired. Log in again |
-| Stopped sharing after closing the app | Closing it from recent apps stops sharing. Open the app to start again |
+| Stopped sharing after closing the app | Closing it from recent apps stops sharing. Open the app and tap **Connect** |
