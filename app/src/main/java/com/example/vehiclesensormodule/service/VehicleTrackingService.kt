@@ -3,26 +3,112 @@ package com.example.vehiclesensormodule.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.location.Location
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.PowerManager
+import android.util.Log
+import androidx.core.content.ContextCompat
+import com.example.vehiclesensormodule.MainActivity
 import com.example.vehiclesensormodule.R
+import com.example.vehiclesensormodule.auth.SessionManager
+import com.example.vehiclesensormodule.network.VehicleWebSocketClient
+import com.example.vehiclesensormodule.sensors.AccelerometerManager
+import com.example.vehiclesensormodule.sensors.CompassManager
+import com.example.vehiclesensormodule.sensors.GPSManager
+import com.example.vehiclesensormodule.sensors.GyroscopeManager
 
 /**
- * Keeps the app in the foreground state while a drive is in progress.
+ * Owns the GPS, sensors and connection to the backend during a drive.
  *
- * The phone is only the vehicle's connectivity module, so it may sit with
- * its screen off. Without this service Android limits location updates as
- * soon as the app is no longer visible. MainActivity still owns the GPS,
- * sensors and WebSocket, so tracking ends if the app is closed.
+ * The phone is only the vehicle's connectivity module, so it may sit with its
+ * screen off or the app closed. Everything lives here, not in MainActivity,
+ * so sharing carries on when Android closes the screen. It ends when the
+ * driver logs out or taps Stop on the notification.
+ *
+ * MainActivity only displays what this publishes through TrackingState.
  */
 class VehicleTrackingService : Service() {
 
     companion object {
+        private const val TAG = "VehicleTracking"
+
         private const val CHANNEL_ID = "vehicle_tracking"
         private const val NOTIFICATION_ID = 1
+
+        private const val ACTION_STOP = "com.example.vehiclesensormodule.STOP_SHARING"
+
+        private const val KMH_PER_MPS = 3.6f
+
+        // Sensors report many times a second, far more often than a screen needs
+        private const val SENSOR_PUBLISH_INTERVAL_MS = 500L
+
+        // A safety limit, in case the service is never stopped
+        private const val WAKE_LOCK_TIMEOUT_MS = 12 * 60 * 60 * 1000L
+
+        // Must be called while the app is visible, as Android only
+        // allows location tracking to start from the foreground
+        fun start(context: Context) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, VehicleTrackingService::class.java)
+            )
+        }
+
+        fun stop(context: Context) {
+            context.stopService(
+                Intent(context, VehicleTrackingService::class.java)
+            )
+        }
+    }
+
+    private lateinit var gpsManager: GPSManager
+    private lateinit var accelerometerManager: AccelerometerManager
+    private lateinit var gyroscopeManager: GyroscopeManager
+    private lateinit var compassManager: CompassManager
+    private lateinit var vehicleClient: VehicleWebSocketClient
+
+    private var tracking = false
+
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    // Latest readings, sent along with each GPS update
+    private var sensors = SensorReadings()
+    private var heading = 0f
+
+    private val publishHandler = Handler(Looper.getMainLooper())
+
+    private var lastNetwork: Network? = null
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+
+        override fun onAvailable(network: Network) {
+
+            val changed = lastNetwork != null && lastNetwork != network
+
+            lastNetwork = network
+
+            vehicleClient.onNetworkAvailable(networkChanged = changed)
+        }
+    }
+
+    private val publishSensors = object : Runnable {
+        override fun run() {
+            TrackingState.update {
+                it.copy(sensors = sensors, heading = heading)
+            }
+
+            publishHandler.postDelayed(this, SENSOR_PUBLISH_INTERVAL_MS)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -32,6 +118,156 @@ class VehicleTrackingService : Service() {
         flags: Int,
         startId: Int
     ): Int {
+
+        if (intent?.action == ACTION_STOP) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        try {
+            startInForeground()
+        } catch (e: RuntimeException) {
+
+            // Android refused, because location isn't allowed or the
+            // app isn't visible. The screen offers to start it again.
+            Log.e(TAG, "Couldn't start sharing", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        if (!tracking) {
+            startTracking()
+        }
+
+        // Android doesn't allow location tracking to restart without
+        // the app being visible, so it's restarted by opening the app
+        return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+
+        publishHandler.removeCallbacks(publishSensors)
+
+        if (tracking) {
+            getSystemService(ConnectivityManager::class.java)
+                .unregisterNetworkCallback(networkCallback)
+
+            gpsManager.stopLocationUpdates()
+            accelerometerManager.stopListening()
+            gyroscopeManager.stopListening()
+            compassManager.stopListening()
+            vehicleClient.disconnect()
+        }
+
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+            }
+        }
+
+        TrackingState.reset()
+
+        super.onDestroy()
+    }
+
+    private fun startTracking() {
+
+        val sessionManager = SessionManager(this)
+        val token = sessionManager.getToken()
+
+        if (token == null) {
+            stopSelf()
+            return
+        }
+
+        tracking = true
+
+        // Keeps the phone processing updates while its screen is off
+        wakeLock = getSystemService(PowerManager::class.java)
+            .newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "VehicleSensorModule:tracking"
+            )
+            .apply { acquire(WAKE_LOCK_TIMEOUT_MS) }
+
+        gpsManager = GPSManager(this)
+        accelerometerManager = AccelerometerManager(this)
+        gyroscopeManager = GyroscopeManager(this)
+        compassManager = CompassManager(this)
+        vehicleClient = VehicleWebSocketClient(this)
+
+        TrackingState.update { it.copy(running = true) }
+
+        vehicleClient.authToken = token
+
+        vehicleClient.onConnectionChanged = { connected ->
+            TrackingState.update { it.copy(backendConnected = connected) }
+        }
+
+        vehicleClient.onVehicleAssigned = { vehicleId ->
+            TrackingState.update { it.copy(vehicleId = vehicleId) }
+        }
+
+        vehicleClient.onAuthorizationRejected = {
+            sessionManager.clearSession()
+            TrackingState.markLoginRejected()
+            stopSelf()
+        }
+
+        vehicleClient.connect()
+
+        getSystemService(ConnectivityManager::class.java)
+            .registerDefaultNetworkCallback(networkCallback)
+
+        gpsManager.startLocationUpdates(::onLocation)
+
+        accelerometerManager.startListening { x, y, z ->
+            sensors = sensors.copy(accelX = x, accelY = y, accelZ = z)
+        }
+
+        gyroscopeManager.startListening { x, y, z ->
+            sensors = sensors.copy(gyroX = x, gyroY = y, gyroZ = z)
+        }
+
+        compassManager.startListening {
+            heading = it
+        }
+
+        publishHandler.post(publishSensors)
+    }
+
+    private fun onLocation(location: Location) {
+
+        val speed = if (location.hasSpeed()) location.speed else null
+        val accuracy = if (location.hasAccuracy()) location.accuracy else null
+
+        TrackingState.update {
+            it.copy(
+                latitude = location.latitude,
+                longitude = location.longitude,
+                speedKmh = speed?.times(KMH_PER_MPS),
+                accuracyMetres = accuracy,
+                lastFixAt = System.currentTimeMillis()
+            )
+        }
+
+        vehicleClient.sendTelemetry(
+            latitude = location.latitude,
+            longitude = location.longitude,
+            heading = heading,
+            accelX = sensors.accelX,
+            accelY = sensors.accelY,
+            accelZ = sensors.accelZ,
+            gyroX = sensors.gyroX,
+            gyroY = sensors.gyroY,
+            gyroZ = sensors.gyroZ,
+            speed = speed,
+            bearing = if (location.hasBearing()) location.bearing else null,
+            accuracy = accuracy
+        )
+    }
+
+    private fun startInForeground() {
 
         val notification = buildNotification()
 
@@ -50,9 +286,6 @@ class VehicleTrackingService : Service() {
                 notification
             )
         }
-
-        // Tracking cannot resume without MainActivity
-        return START_NOT_STICKY
     }
 
     private fun buildNotification(): Notification {
@@ -77,11 +310,33 @@ class VehicleTrackingService : Service() {
                 Notification.Builder(this)
             }
 
+        val openApp = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val stopSharing = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, VehicleTrackingService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
         return builder
             .setContentTitle(getString(R.string.app_name))
             .setContentText("Sharing your location with nearby vehicles")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
+            .setContentIntent(openApp)
+            .addAction(
+                Notification.Action.Builder(
+                    null,
+                    "Stop sharing",
+                    stopSharing
+                ).build()
+            )
             .build()
     }
 }

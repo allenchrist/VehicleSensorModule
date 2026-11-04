@@ -1,5 +1,6 @@
 package com.example.vehiclesensormodule.network
 
+import com.example.vehiclesensormodule.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -9,7 +10,9 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
 
     private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.HEADERS
+        level =
+            if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
+            else HttpLoggingInterceptor.Level.NONE
         redactHeader("Authorization")
     }
 

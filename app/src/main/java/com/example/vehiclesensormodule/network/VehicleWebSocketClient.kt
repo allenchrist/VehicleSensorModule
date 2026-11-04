@@ -10,7 +10,6 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class VehicleWebSocketClient(context: Context) {
@@ -18,17 +17,14 @@ class VehicleWebSocketClient(context: Context) {
     companion object {
         private const val TAG = "VehicleWebSocket"
 
-        private const val PREFS_NAME =
-            "vehicle_sensor_preferences"
-
-        private const val DEVICE_ID_KEY =
-            "device_id"
-
         private const val MAX_RECONNECT_DELAY_MS = 30_000L
 
         // Sent by the backend. Reconnecting would not help with these.
         private const val CLOSE_INVALID_DEVICE = 4001
         private const val CLOSE_REPLACED = 4002
+
+        // The login isn't valid for this phone, so it must log in again
+        private const val CLOSE_NOT_AUTHORIZED = 4004
     }
 
     private val client = OkHttpClient.Builder()
@@ -55,7 +51,6 @@ class VehicleWebSocketClient(context: Context) {
 
     private var deviceId: String = ""
     private var vehicleId: String? = null
-    private var pairingCode: String? = null
 
     @Volatile
     var isConnected: Boolean = false
@@ -64,43 +59,21 @@ class VehicleWebSocketClient(context: Context) {
     // Backend connection status
     var onConnectionChanged: ((Boolean) -> Unit)? = null
 
+    // Proves to the backend that this phone may act as this device
+    var authToken: String? = null
+
+    // The backend refused this login
+    var onAuthorizationRejected: (() -> Unit)? = null
+
     // Vehicle assigned by backend
     var onVehicleAssigned: ((String) -> Unit)? = null
-
-    // Pairing code received from backend
-    var onPairingCodeReceived: ((String) -> Unit)? = null
 
     // Fleet update callback
     var onFleetUpdate: ((List<VehicleData>) -> Unit)? = null
 
     init {
 
-        // --------------------------------------------------
-        // Load persistent device ID
-        // --------------------------------------------------
-
-        val preferences = context.getSharedPreferences(
-            PREFS_NAME,
-            Context.MODE_PRIVATE
-        )
-
-        deviceId = preferences.getString(
-            DEVICE_ID_KEY,
-            null
-        ) ?: UUID.randomUUID().toString().also { newId ->
-
-            preferences.edit()
-                .putString(
-                    DEVICE_ID_KEY,
-                    newId
-                )
-                .apply()
-        }
-
-        Log.d(
-            TAG,
-            "Persistent Device ID: $deviceId"
-        )
+        deviceId = DeviceIdentity.get(context)
     }
 
     // --------------------------------------------------
@@ -138,6 +111,11 @@ class VehicleWebSocketClient(context: Context) {
 
         val request = Request.Builder()
             .url(ServerConfig.VEHICLE_WS_URL)
+            .apply {
+                authToken?.let {
+                    header("Authorization", "Bearer $it")
+                }
+            }
             .build()
 
         Log.d(
@@ -183,11 +161,6 @@ class VehicleWebSocketClient(context: Context) {
                     webSocket: WebSocket,
                     text: String
                 ) {
-
-                    Log.d(
-                        TAG,
-                        "SERVER: $text"
-                    )
 
                     handleServerMessage(text)
                 }
@@ -247,7 +220,13 @@ class VehicleWebSocketClient(context: Context) {
                             "Active WebSocket cleared"
                         )
 
-                        if (
+                        if (code == CLOSE_NOT_AUTHORIZED) {
+
+                            reconnectHandler.post {
+                                onAuthorizationRejected?.invoke()
+                            }
+
+                        } else if (
                             code != CLOSE_INVALID_DEVICE &&
                             code != CLOSE_REPLACED
                         ) {
@@ -366,6 +345,38 @@ class VehicleWebSocketClient(context: Context) {
     }
 
     // --------------------------------------------------
+    // NETWORK RETURNED OR CHANGED
+    //
+    // Skips the wait between attempts. After a change, such as
+    // Wi-Fi to mobile data, the old connection can't be trusted:
+    // it could otherwise take up to a minute to notice it's dead.
+    // --------------------------------------------------
+
+    fun onNetworkAvailable(networkChanged: Boolean) {
+
+        reconnectHandler.post {
+
+            if (!shouldStayConnected) {
+                return@post
+            }
+
+            reconnectAttempt = 0
+
+            val socket = webSocket
+
+            if (socket == null) {
+
+                connect()
+
+            } else if (networkChanged) {
+
+                // Fails the socket, which schedules a quick reconnect
+                socket.cancel()
+            }
+        }
+    }
+
+    // --------------------------------------------------
     // REGISTER DEVICE
     // --------------------------------------------------
 
@@ -385,11 +396,6 @@ class VehicleWebSocketClient(context: Context) {
                 deviceId
             )
         }
-
-        Log.d(
-            TAG,
-            "Registering device: $deviceId"
-        )
 
         val success = webSocket.send(
             registration.toString()
@@ -424,20 +430,11 @@ class VehicleWebSocketClient(context: Context) {
 
                 "registered" -> {
 
-                    val assignedDeviceId =
-                        json.optString("deviceId")
-
                     val assignedVehicleId =
                         json.optString("vehicleId")
 
-                    val assignedPairingCode =
-                        json.optString("pairingCode")
-
                     vehicleId =
                         assignedVehicleId
-
-                    pairingCode =
-                        assignedPairingCode
 
                     Log.d(
                         TAG,
@@ -446,31 +443,12 @@ class VehicleWebSocketClient(context: Context) {
 
                     Log.d(
                         TAG,
-                        "Device ID: $assignedDeviceId"
-                    )
-
-                    Log.d(
-                        TAG,
                         "Vehicle ID: $assignedVehicleId"
-                    )
-
-                    Log.d(
-                        TAG,
-                        "Pairing Code: $assignedPairingCode"
                     )
 
                     onVehicleAssigned?.invoke(
                         assignedVehicleId
                     )
-
-                    if (
-                        assignedPairingCode.isNotEmpty()
-                    ) {
-
-                        onPairingCodeReceived?.invoke(
-                            assignedPairingCode
-                        )
-                    }
                 }
 
                 // --------------------------------------
@@ -827,9 +805,5 @@ class VehicleWebSocketClient(context: Context) {
 
     fun getVehicleId(): String? {
         return vehicleId
-    }
-
-    fun getPairingCode(): String? {
-        return pairingCode
     }
 }

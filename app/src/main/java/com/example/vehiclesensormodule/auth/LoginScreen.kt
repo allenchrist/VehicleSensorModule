@@ -49,12 +49,13 @@ fun LoginScreen(
     onLoginSuccess: suspend (token: String, username: String) -> String?,
     onCreateAccount: () -> Unit,
     initialUsername: String = "",
+    initialError: String? = null,
     successMessage: String? = null
 ) {
 
     var username by rememberSaveable { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorMessage by remember { mutableStateOf(initialError) }
     var isLoading by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()

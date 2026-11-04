@@ -16,7 +16,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 
 import com.example.vehiclesensormodule.auth.LoginScreen
 import com.example.vehiclesensormodule.auth.SessionManager
@@ -24,19 +26,16 @@ import com.example.vehiclesensormodule.auth.SignupScreen
 import com.example.vehiclesensormodule.network.ApiClient
 import com.example.vehiclesensormodule.network.CONNECTION_ERROR_MESSAGE
 import com.example.vehiclesensormodule.network.DeviceAssociationRequest
-import com.example.vehiclesensormodule.network.VehicleWebSocketClient
+import com.example.vehiclesensormodule.network.DeviceIdentity
 import com.example.vehiclesensormodule.network.readableError
 import com.example.vehiclesensormodule.screen.DriveState
 import com.example.vehiclesensormodule.screen.MainScreen
-import com.example.vehiclesensormodule.screen.SensorReadings
-import com.example.vehiclesensormodule.sensors.AccelerometerManager
-import com.example.vehiclesensormodule.sensors.CompassManager
-import com.example.vehiclesensormodule.sensors.GPSManager
-import com.example.vehiclesensormodule.sensors.GyroscopeManager
+import com.example.vehiclesensormodule.service.TrackingState
 import com.example.vehiclesensormodule.service.VehicleTrackingService
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
@@ -44,18 +43,13 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
 
-        private const val KMH_PER_MPS = 3.6f
-
         // With no GPS update for this long, the screen says it is searching again
         private const val GPS_FIX_TIMEOUT_MS = 10_000L
+
+        private const val LOGIN_REJECTED_MESSAGE =
+            "You've been logged out. This can happen if your account was used on another phone. Please log in again."
     }
 
-    private lateinit var gpsManager: GPSManager
-    private lateinit var accelerometerManager: AccelerometerManager
-    private lateinit var gyroscopeManager: GyroscopeManager
-    private lateinit var compassManager: CompassManager
-
-    private lateinit var vehicleWebSocketClient: VehicleWebSocketClient
     private lateinit var sessionManager: SessionManager
 
     private var locationPermissionGranted by mutableStateOf(false)
@@ -78,30 +72,9 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
         )
 
-        // --------------------------------------------------
-        // Initialize session manager
-        // --------------------------------------------------
-
         sessionManager = SessionManager(this)
 
         locationPermissionGranted = hasLocationPermission()
-
-
-        // --------------------------------------------------
-        // Initialize sensors
-        // --------------------------------------------------
-
-        gpsManager = GPSManager(this)
-        accelerometerManager = AccelerometerManager(this)
-        gyroscopeManager = GyroscopeManager(this)
-        compassManager = CompassManager(this)
-
-
-        // --------------------------------------------------
-        // Initialize WebSocket client
-        // --------------------------------------------------
-
-        vehicleWebSocketClient = VehicleWebSocketClient(this)
 
 
         // --------------------------------------------------
@@ -123,6 +96,38 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf<String?>(null)
             }
 
+            // The service refuses a login even if this screen wasn't open
+            val loginRejected by TrackingState.loginRejected.collectAsState()
+
+            val logOut = {
+
+                Log.d(
+                    TAG,
+                    "Logging out user: ${sessionManager.getUsername()}"
+                )
+
+                // Clear saved JWT and username
+                sessionManager.clearSession()
+
+                // Stop sharing
+                VehicleTrackingService.stop(this@MainActivity)
+
+                // Return to Login screen
+                isLoggedIn = false
+
+                // Make sure Signup is not displayed
+                showSignup = false
+
+                newUsername = null
+            }
+
+            LaunchedEffect(loginRejected) {
+
+                if (loginRejected) {
+                    logOut()
+                }
+            }
+
 
             VehicleSensorModuleTheme {
 
@@ -132,24 +137,10 @@ class MainActivity : ComponentActivity() {
 
                         onLogout = {
 
-                            Log.d(
-                                TAG,
-                                "Logging out user: ${sessionManager.getUsername()}"
-                            )
+                            // Runs on after this screen closes
+                            unlinkThisPhone(sessionManager.getToken())
 
-                            // Clear saved JWT and username
-                            sessionManager.clearSession()
-
-                            // Disconnect vehicle WebSocket
-                            vehicleWebSocketClient.disconnect()
-
-                            // Return to Login screen
-                            isLoggedIn = false
-
-                            // Make sure Signup is not displayed
-                            showSignup = false
-
-                            newUsername = null
+                            logOut()
                         }
                     )
 
@@ -177,6 +168,7 @@ class MainActivity : ComponentActivity() {
                                     linkDeviceAndSaveSession(token, username)
 
                                 if (error == null) {
+                                    TrackingState.clearLoginRejected()
                                     isLoggedIn = true
                                 }
 
@@ -188,6 +180,9 @@ class MainActivity : ComponentActivity() {
                             },
 
                             initialUsername = newUsername.orEmpty(),
+
+                            initialError =
+                                if (loginRejected) LOGIN_REJECTED_MESSAGE else null,
 
                             successMessage = newUsername?.let {
                                 "Account created. Log in to connect your vehicle."
@@ -205,6 +200,39 @@ class MainActivity : ComponentActivity() {
 
         // Location may have been allowed from the settings app
         locationPermissionGranted = hasLocationPermission()
+    }
+
+
+    /**
+     * Frees this phone for the next person to log in. If it fails, nothing
+     * is lost: logging in on any phone moves the account to that phone.
+     */
+    private fun unlinkThisPhone(token: String?) {
+
+        if (token == null) {
+            return
+        }
+
+        lifecycleScope.launch {
+
+            try {
+
+                ApiClient.authService.unlinkDevice(
+                    authorization = "Bearer $token",
+                    request = DeviceAssociationRequest(
+                        deviceId = DeviceIdentity.get(this@MainActivity)
+                    )
+                )
+
+            } catch (e: Exception) {
+
+                Log.w(
+                    TAG,
+                    "Couldn't unlink this phone on logout",
+                    e
+                )
+            }
+        }
     }
 
 
@@ -244,6 +272,19 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    private fun startSharing() {
+
+        try {
+            VehicleTrackingService.start(this)
+        } catch (e: IllegalStateException) {
+
+            // Android only allows this while the app is visible.
+            // The screen keeps offering the Start sharing button.
+            Log.e(TAG, "Couldn't start sharing", e)
+        }
+    }
+
+
     /**
      * Links this phone to the account. The session is only saved if that
      * succeeds. Returns an error message to show, or null on success.
@@ -259,7 +300,7 @@ class MainActivity : ComponentActivity() {
                 ApiClient.authService.associateDevice(
                     authorization = "Bearer $token",
                     request = DeviceAssociationRequest(
-                        deviceId = vehicleWebSocketClient.getDeviceId()
+                        deviceId = DeviceIdentity.get(this)
                     )
                 )
 
@@ -304,6 +345,8 @@ class MainActivity : ComponentActivity() {
 
     // ==========================================================
     // VEHICLE SCREEN
+    //
+    // Only displays what VehicleTrackingService publishes.
     // ==========================================================
 
     @Composable
@@ -311,48 +354,15 @@ class MainActivity : ComponentActivity() {
         onLogout: () -> Unit
     ) {
 
-        var latitude by remember {
-            mutableStateOf(0.0)
-        }
-
-        var longitude by remember {
-            mutableStateOf(0.0)
-        }
-
-        var speedKmh by remember {
-            mutableStateOf<Float?>(null)
-        }
-
-        var accuracyMetres by remember {
-            mutableStateOf<Float?>(null)
-        }
-
-        var lastFixAt by remember {
-            mutableStateOf<Long?>(null)
-        }
+        val tracking by TrackingState.state.collectAsState()
 
         var now by remember {
             mutableStateOf(System.currentTimeMillis())
         }
 
-        var sensors by remember {
-            mutableStateOf(SensorReadings())
-        }
-
-        var heading by remember {
-            mutableStateOf(0f)
-        }
-
-
-        // --------------------------------------------------
-        // Vehicle information
-        // --------------------------------------------------
-
-        var vehicleId by remember {
-            mutableStateOf("")
-        }
-
-        var backendConnected by remember {
+        // Starts sharing once per opening of this screen. After Stop sharing
+        // on the notification, rotating the phone doesn't start it again.
+        var startedSharing by rememberSaveable {
             mutableStateOf(false)
         }
 
@@ -369,189 +379,22 @@ class MainActivity : ComponentActivity() {
         }
 
 
-        // --------------------------------------------------
-        // WebSocket callbacks
-        //
-        // IMPORTANT:
-        // These are assigned BEFORE connect().
-        // --------------------------------------------------
+        LaunchedEffect(locationPermissionGranted) {
 
-        DisposableEffect(Unit) {
-
-            vehicleWebSocketClient.onConnectionChanged = { connected ->
-
-                Log.d(
-                    TAG,
-                    "Backend connection: ${
-                        if (connected) {
-                            "CONNECTED"
-                        } else {
-                            "DISCONNECTED"
-                        }
-                    }"
-                )
-
-                backendConnected = connected
-            }
-
-
-            vehicleWebSocketClient.onVehicleAssigned = {
-                    assignedVehicleId ->
-
-                Log.d(
-                    TAG,
-                    "Vehicle assigned by backend: $assignedVehicleId"
-                )
-
-                vehicleId = assignedVehicleId
-            }
-
-
-            onDispose {
-
-                vehicleWebSocketClient.onConnectionChanged = null
-                vehicleWebSocketClient.onVehicleAssigned = null
-            }
-        }
-
-
-        // --------------------------------------------------
-        // Connect AFTER callbacks are ready
-        // --------------------------------------------------
-
-        LaunchedEffect(Unit) {
-
-            vehicleWebSocketClient.connect()
-        }
-
-
-        // --------------------------------------------------
-        // Start sensors once location is allowed,
-        // and stop them when leaving this screen.
-        // --------------------------------------------------
-
-        DisposableEffect(locationPermissionGranted) {
-
-            val trackingService = Intent(
-                this@MainActivity,
-                VehicleTrackingService::class.java
-            )
-
-            if (locationPermissionGranted) {
-
-                // Keeps GPS and sensors running with the screen off
-                ContextCompat.startForegroundService(
-                    this@MainActivity,
-                    trackingService
-                )
-
-                // --------------------------------------------------
-                // GPS
-                // --------------------------------------------------
-
-                gpsManager.startLocationUpdates { location ->
-
-                    latitude = location.latitude
-                    longitude = location.longitude
-
-                    speedKmh =
-                        if (location.hasSpeed()) location.speed * KMH_PER_MPS else null
-
-                    accuracyMetres =
-                        if (location.hasAccuracy()) location.accuracy else null
-
-                    lastFixAt = System.currentTimeMillis()
-
-
-                    vehicleWebSocketClient.sendTelemetry(
-
-                        latitude = location.latitude,
-
-                        longitude = location.longitude,
-
-                        heading = heading,
-
-                        accelX = sensors.accelX,
-                        accelY = sensors.accelY,
-                        accelZ = sensors.accelZ,
-
-                        gyroX = sensors.gyroX,
-                        gyroY = sensors.gyroY,
-                        gyroZ = sensors.gyroZ,
-
-                        speed =
-                            if (location.hasSpeed()) location.speed else null,
-
-                        bearing =
-                            if (location.hasBearing()) location.bearing else null,
-
-                        accuracy =
-                            if (location.hasAccuracy()) location.accuracy else null
-                    )
-                }
-
-
-                // --------------------------------------------------
-                // Accelerometer
-                // --------------------------------------------------
-
-                accelerometerManager.startListening {
-                        x, y, z ->
-
-                    sensors = sensors.copy(
-                        accelX = x,
-                        accelY = y,
-                        accelZ = z
-                    )
-                }
-
-
-                // --------------------------------------------------
-                // Gyroscope
-                // --------------------------------------------------
-
-                gyroscopeManager.startListening {
-                        x, y, z ->
-
-                    sensors = sensors.copy(
-                        gyroX = x,
-                        gyroY = y,
-                        gyroZ = z
-                    )
-                }
-
-
-                // --------------------------------------------------
-                // Compass
-                // --------------------------------------------------
-
-                compassManager.startListening {
-
-                    heading = it
-                }
-
-            } else {
+            if (!locationPermissionGranted) {
 
                 requestLocationPermission()
-            }
 
-            onDispose {
+            } else if (!startedSharing) {
 
-                stopService(trackingService)
+                startedSharing = true
 
-                gpsManager.stopLocationUpdates()
-                accelerometerManager.stopListening()
-                gyroscopeManager.stopListening()
-                compassManager.stopListening()
+                startSharing()
             }
         }
 
 
-        // --------------------------------------------------
-        // UI
-        // --------------------------------------------------
-
-        val fixTime = lastFixAt
+        val fixTime = tracking.lastFixAt
 
         MainScreen(
 
@@ -559,43 +402,35 @@ class MainActivity : ComponentActivity() {
 
                 username = sessionManager.getUsername().orEmpty(),
 
-                vehicleId = vehicleId,
+                vehicleId = tracking.vehicleId,
 
-                backendConnected = backendConnected,
+                backendConnected = tracking.backendConnected,
 
                 locationAllowed = locationPermissionGranted,
+
+                sharingOn = tracking.running || !startedSharing,
 
                 hasRecentFix =
                     fixTime != null && now - fixTime < GPS_FIX_TIMEOUT_MS,
 
-                latitude = latitude,
-                longitude = longitude,
+                latitude = tracking.latitude,
+                longitude = tracking.longitude,
 
-                speedKmh = speedKmh,
-                accuracyMetres = accuracyMetres,
+                speedKmh = tracking.speedKmh,
+                accuracyMetres = tracking.accuracyMetres,
 
-                heading = heading,
+                heading = tracking.heading,
 
-                sensors = sensors
+                sensors = tracking.sensors
             ),
 
             onAllowLocation = ::requestLocationPermission,
 
             onOpenSettings = ::openAppSettings,
 
-            onLogout = onLogout
+            onLogout = onLogout,
+
+            onStartSharing = ::startSharing
         )
-    }
-
-
-    // ------------------------------------------------------
-    // Clean shutdown
-    // ------------------------------------------------------
-
-    override fun onDestroy() {
-
-        vehicleWebSocketClient.disconnect()
-
-        super.onDestroy()
     }
 }

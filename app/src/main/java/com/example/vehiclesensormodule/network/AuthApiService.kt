@@ -79,4 +79,10 @@ interface AuthApiService {
         @Header("Authorization") authorization: String,
         @Body request: DeviceAssociationRequest
     ): Response<DeviceAssociationResponse>
+
+    @POST("api/auth/device/unlink")
+    suspend fun unlinkDevice(
+        @Header("Authorization") authorization: String,
+        @Body request: DeviceAssociationRequest
+    ): Response<Unit>
 }

@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
+import com.example.vehiclesensormodule.service.SensorReadings
 import com.example.vehiclesensormodule.ui.components.AppCard
 import com.example.vehiclesensormodule.ui.components.CardShape
 import com.example.vehiclesensormodule.ui.components.ControlShape
@@ -70,20 +71,12 @@ import com.example.vehiclesensormodule.ui.theme.TextSecondary
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
 import com.example.vehiclesensormodule.ui.theme.Warning
 
-data class SensorReadings(
-    val accelX: Float = 0f,
-    val accelY: Float = 0f,
-    val accelZ: Float = 0f,
-    val gyroX: Float = 0f,
-    val gyroY: Float = 0f,
-    val gyroZ: Float = 0f
-)
-
 data class DriveState(
     val username: String,
     val vehicleId: String,
     val backendConnected: Boolean,
     val locationAllowed: Boolean,
+    val sharingOn: Boolean = true,
     val hasRecentFix: Boolean,
     val latitude: Double,
     val longitude: Double,
@@ -102,6 +95,11 @@ private enum class DriveStatus(
         Danger,
         "Location is off",
         "Allow location so your car screen and nearby vehicles can see you."
+    ),
+    SharingOff(
+        Warning,
+        "Sharing is off",
+        "Your car screen and nearby vehicles can't see you."
     ),
     Connecting(
         Warning,
@@ -122,6 +120,7 @@ private enum class DriveStatus(
 
 private fun DriveState.status(): DriveStatus = when {
     !locationAllowed -> DriveStatus.LocationOff
+    !sharingOn -> DriveStatus.SharingOff
     !backendConnected -> DriveStatus.Connecting
     !hasRecentFix -> DriveStatus.SearchingGps
     else -> DriveStatus.Live
@@ -137,7 +136,8 @@ fun MainScreen(
     state: DriveState,
     onAllowLocation: () -> Unit,
     onOpenSettings: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onStartSharing: () -> Unit = {}
 ) {
 
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
@@ -163,7 +163,8 @@ fun MainScreen(
                 status = status,
                 vehicleId = state.vehicleId,
                 onAllowLocation = onAllowLocation,
-                onOpenSettings = onOpenSettings
+                onOpenSettings = onOpenSettings,
+                onStartSharing = onStartSharing
             )
 
             Row(
@@ -270,7 +271,8 @@ private fun StatusHero(
     status: DriveStatus,
     vehicleId: String,
     onAllowLocation: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onStartSharing: () -> Unit
 ) {
     val color by animateColorAsState(status.color, label = "statusColor")
 
@@ -290,7 +292,9 @@ private fun StatusHero(
 
             PulsingCar(
                 color = color,
-                pulsing = status != DriveStatus.LocationOff
+                pulsing =
+                    status != DriveStatus.LocationOff &&
+                        status != DriveStatus.SharingOff
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -329,6 +333,15 @@ private fun StatusHero(
                 ) {
                     Text("Open settings", color = TextSecondary)
                 }
+
+            } else if (status == DriveStatus.SharingOff) {
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                PrimaryButton(
+                    text = "Start sharing",
+                    onClick = onStartSharing
+                )
 
             } else if (vehicleId.isNotEmpty()) {
 
@@ -482,7 +495,7 @@ private fun TipCard() {
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = "Sharing continues with the screen off. Closing the app from recent apps stops it.",
+                    text = "Sharing carries on with the screen off or the app closed. To stop it, use the notification or log out.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
