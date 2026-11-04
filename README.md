@@ -1,0 +1,92 @@
+# Connected Vehicle (Android app)
+
+The phone half of [Narrow Road Navigation](https://github.com/allenchrist/narrow-road-navigation), a college project that helps drivers pass safely through narrow roads.
+
+We can't modify a real car, so this app stands in for its connectivity module. It sends the car's position to the server, which compares nearby cars. **Alerts appear on the web dashboard**, which stands in for the car's screen, not on the phone.
+
+## Install it
+
+You need [Android Studio](https://developer.android.com/studio) and an Android phone running Android 7.0 or newer with USB debugging on.
+
+1. Open this folder in Android Studio and wait for it to finish syncing.
+2. Connect the phone and press **Run**.
+
+To build from a terminal, run `gradlew.bat :app:assembleDebug` on Windows or `sh ./gradlew :app:assembleDebug` elsewhere. Android Studio's own Java works if you set `JAVA_HOME` to its `jbr` folder.
+
+## Use it
+
+1. Create an account, then log in.
+2. Allow location, and allow notifications so you can see the **Stop sharing** button.
+3. If the app shows **Battery limits are on** or **Battery Saver is on**, follow its button. These can delay your position while the screen is locked.
+4. Open the dashboard website and log in with the same account.
+
+Each phone needs its own account. Logging in on a new phone moves the account to that phone.
+
+## When it shares your position
+
+| What you do | Sharing |
+|---|---|
+| Lock the screen | Continues |
+| Press Home or switch to another app | Continues |
+| Close the app from recent apps | Stops |
+| Tap **Stop sharing** on the notification | Stops |
+| Log out | Stops |
+| Open the app again after it stopped | Starts again |
+
+After restarting the phone, sharing starts again when you open the app. Android doesn't let an app start tracking location without being opened.
+
+## How it's organised
+
+```
+app/src/main/java/com/example/vehiclesensormodule/
+  MainActivity.kt      screens and permission requests
+  service/             the background service: GPS, sensors and the connection
+  sensors/             GPS, accelerometer, gyroscope and compass
+  network/             login requests and the live connection to the server
+  auth/                login and signup screens, and the encrypted login token
+  screen/, ui/         the main screen, shared components and theme
+```
+
+The background service does the real work, so sharing carries on while the screen is off. The screens only display what it reports.
+
+## Server address
+
+The app connects to the address in [ServerConfig.kt](app/src/main/java/com/example/vehiclesensormodule/network/ServerConfig.kt). Change it there if your server is elsewhere.
+
+The app only allows encrypted connections, so plain `http://` and `ws://` addresses, such as a laptop on the same Wi-Fi, won't work.
+
+## Permissions
+
+| Permission | Why |
+|---|---|
+| Location (fine and coarse) | The car's position |
+| Foreground service, and foreground service location | Sharing with the screen off |
+| Notifications | The notification with the **Stop sharing** button |
+| Wake lock | Keeps updates going while the screen is off |
+| Internet, and network state | Reaching the server, and reconnecting when the network returns |
+| Ignore battery optimisations | Lets the app ask to run without battery limits |
+
+## Privacy and security
+
+- The login token is encrypted with a key held in Android's secure storage. On the few phones where that storage is faulty, it's stored unencrypted so the driver can still log in.
+- Logins and the device ID are left out of Android backups and phone-to-phone transfers.
+- Passwords aren't stored on the phone.
+
+## Run the checks
+
+```
+gradlew.bat :app:testDebugUnitTest :app:lintDebug
+```
+
+GitHub also builds the app and runs these on every push. Results are in the repository's **Actions** tab. Android's secure storage and background behaviour can only be tested on a real phone.
+
+## Common problems
+
+| Problem | What to check |
+|---|---|
+| Stuck on **Connecting…** | The phone's internet connection, and whether the server is awake. Free hosts can take a little while |
+| Stuck on **Finding your position** | Go outdoors, and make sure the phone's location is on |
+| Car updates lag with the screen locked | Turn Battery Saver off, and remove the battery limits. Mobile data is also more dependable than Wi-Fi |
+| No **Stop sharing** button | Allow notifications for this app in the phone's settings |
+| Logged out unexpectedly | The account was probably used on another phone, or the 30-day login expired. Log in again |
+| Stopped sharing after closing the app | Closing it from recent apps stops sharing. Open the app to start again |
