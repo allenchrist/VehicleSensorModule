@@ -77,6 +77,7 @@ data class DriveState(
     val backendConnected: Boolean,
     val locationAllowed: Boolean,
     val sharingOn: Boolean = true,
+    val phoneLocationOn: Boolean = true,
     val batteryLimited: Boolean = false,
     val batterySaverOn: Boolean = false,
     val hasRecentFix: Boolean,
@@ -97,6 +98,11 @@ private enum class DriveStatus(
         Danger,
         "Location is off",
         "Allow location so your car screen and nearby vehicles can see you."
+    ),
+    PhoneLocationOff(
+        Danger,
+        "Your phone's location is off",
+        "Turn it on so your car screen and nearby vehicles can see you."
     ),
     SharingOff(
         Warning,
@@ -122,6 +128,7 @@ private enum class DriveStatus(
 
 private fun DriveState.status(): DriveStatus = when {
     !locationAllowed -> DriveStatus.LocationOff
+    !phoneLocationOn -> DriveStatus.PhoneLocationOff
     !sharingOn -> DriveStatus.SharingOff
     !backendConnected -> DriveStatus.Connecting
     !hasRecentFix -> DriveStatus.SearchingGps
@@ -140,6 +147,7 @@ fun MainScreen(
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
     onStartSharing: () -> Unit = {},
+    onOpenLocationSettings: () -> Unit = {},
     onAllowNoBatteryLimits: () -> Unit = {},
     onOpenBatterySaver: () -> Unit = {}
 ) {
@@ -168,7 +176,8 @@ fun MainScreen(
                 vehicleId = state.vehicleId,
                 onAllowLocation = onAllowLocation,
                 onOpenSettings = onOpenSettings,
-                onStartSharing = onStartSharing
+                onStartSharing = onStartSharing,
+                onOpenLocationSettings = onOpenLocationSettings
             )
 
             if (state.batterySaverOn) {
@@ -294,7 +303,8 @@ private fun StatusHero(
     vehicleId: String,
     onAllowLocation: () -> Unit,
     onOpenSettings: () -> Unit,
-    onStartSharing: () -> Unit
+    onStartSharing: () -> Unit,
+    onOpenLocationSettings: () -> Unit
 ) {
     val color by animateColorAsState(status.color, label = "statusColor")
 
@@ -316,6 +326,7 @@ private fun StatusHero(
                 color = color,
                 pulsing =
                     status != DriveStatus.LocationOff &&
+                        status != DriveStatus.PhoneLocationOff &&
                         status != DriveStatus.SharingOff
             )
 
@@ -355,6 +366,15 @@ private fun StatusHero(
                 ) {
                     Text("Open settings", color = TextSecondary)
                 }
+
+            } else if (status == DriveStatus.PhoneLocationOff) {
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                PrimaryButton(
+                    text = "Open location settings",
+                    onClick = onOpenLocationSettings
+                )
 
             } else if (status == DriveStatus.SharingOff) {
 

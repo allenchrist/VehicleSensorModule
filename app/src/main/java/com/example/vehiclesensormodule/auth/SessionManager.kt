@@ -1,9 +1,11 @@
 package com.example.vehiclesensormodule.auth
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Log
+import androidx.core.content.edit
 import java.security.KeyStore
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -58,7 +60,7 @@ class SessionManager(context: Context) {
             .generateKey()
     }
 
-    private fun storeToken(editor: android.content.SharedPreferences.Editor, token: String) {
+    private fun storeToken(editor: SharedPreferences.Editor, token: String) {
 
         try {
 
@@ -78,13 +80,10 @@ class SessionManager(context: Context) {
 
     fun saveSession(token: String, username: String) {
 
-        val editor = preferences.edit()
-
-        storeToken(editor, token)
-
-        editor
-            .putString(USERNAME, username)
-            .apply()
+        preferences.edit {
+            storeToken(this, token)
+            putString(USERNAME, username)
+        }
     }
 
     fun getToken(): String? {
@@ -97,11 +96,9 @@ class SessionManager(context: Context) {
             ?: return null
 
         // A login from an older version of the app. Encrypt it now.
-        val editor = preferences.edit()
-
-        storeToken(editor, plainToken)
-
-        editor.apply()
+        preferences.edit {
+            storeToken(this, plainToken)
+        }
 
         return plainToken
     }
@@ -115,6 +112,8 @@ class SessionManager(context: Context) {
     }
 
     fun clearSession() {
-        preferences.edit().clear().apply()
+        preferences.edit {
+            clear()
+        }
     }
 }

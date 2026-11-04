@@ -50,8 +50,8 @@ class VehicleTrackingService : Service() {
 
         private const val KMH_PER_MPS = 3.6f
 
-        // Sensors report many times a second, far more often than a screen needs
-        private const val SENSOR_PUBLISH_INTERVAL_MS = 500L
+        // Sensors report several times a second, more often than a screen needs
+        private const val SENSOR_PUBLISH_INTERVAL_MS = 1000L
 
         // GPS is requested every second, so a longer wait than this is a delay
         private const val GPS_GAP_LOG_MS = 3000L
@@ -237,6 +237,8 @@ class VehicleTrackingService : Service() {
 
         accelerometerManager.startListening { x, y, z ->
             sensors = sensors.copy(accelX = x, accelY = y, accelZ = z)
+
+            compassManager.onGravityChanged(x, y, z)
         }
 
         gyroscopeManager.startListening { x, y, z ->

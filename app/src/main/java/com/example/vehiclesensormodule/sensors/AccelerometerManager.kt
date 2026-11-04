@@ -23,7 +23,7 @@ class AccelerometerManager(context: Context) : SensorEventListener {
             sensorManager.registerListener(
                 this,
                 it,
-                SensorManager.SENSOR_DELAY_UI
+                SensorManager.SENSOR_DELAY_NORMAL
             )
         }
     }

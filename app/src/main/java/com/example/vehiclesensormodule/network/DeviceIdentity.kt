@@ -1,6 +1,7 @@
 package com.example.vehiclesensormodule.network
 
 import android.content.Context
+import androidx.core.content.edit
 import java.util.UUID
 
 /**
@@ -21,9 +22,9 @@ object DeviceIdentity {
 
         return preferences.getString(DEVICE_ID_KEY, null)
             ?: UUID.randomUUID().toString().also { newId ->
-                preferences.edit()
-                    .putString(DEVICE_ID_KEY, newId)
-                    .apply()
+                preferences.edit {
+                    putString(DEVICE_ID_KEY, newId)
+                }
             }
     }
 }

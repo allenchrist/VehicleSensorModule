@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -21,6 +22,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.lifecycleScope
 
 import com.example.vehiclesensormodule.auth.LoginScreen
@@ -287,6 +289,14 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    private fun openLocationSettings() {
+
+        openSettingsScreen(
+            Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+        )
+    }
+
+
     private fun openBatterySaverSettings() {
 
         openSettingsScreen(
@@ -392,7 +402,7 @@ class MainActivity : ComponentActivity() {
         val tracking by TrackingState.state.collectAsState()
 
         var now by remember {
-            mutableStateOf(System.currentTimeMillis())
+            mutableLongStateOf(System.currentTimeMillis())
         }
 
         val powerManager = remember {
@@ -407,6 +417,14 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(false)
         }
 
+        val locationManager = remember {
+            getSystemService(LocationManager::class.java)
+        }
+
+        var phoneLocationOn by remember {
+            mutableStateOf(true)
+        }
+
         // Starts sharing once per opening of this screen. After Stop sharing
         // on the notification, rotating the phone doesn't start it again.
         var startedSharing by rememberSaveable {
@@ -415,7 +433,7 @@ class MainActivity : ComponentActivity() {
 
 
         // Notices when GPS updates have stopped arriving, and
-        // when the power settings that can delay them change
+        // when the settings that can stop or delay them change
         LaunchedEffect(Unit) {
 
             while (true) {
@@ -424,6 +442,9 @@ class MainActivity : ComponentActivity() {
                     !powerManager.isIgnoringBatteryOptimizations(packageName)
 
                 batterySaverOn = powerManager.isPowerSaveMode
+
+                phoneLocationOn =
+                    LocationManagerCompat.isLocationEnabled(locationManager)
 
                 delay(1000)
 
@@ -463,6 +484,8 @@ class MainActivity : ComponentActivity() {
 
                 sharingOn = tracking.running || !startedSharing,
 
+                phoneLocationOn = phoneLocationOn,
+
                 batteryLimited = batteryLimited,
 
                 batterySaverOn = batterySaverOn,
@@ -488,6 +511,8 @@ class MainActivity : ComponentActivity() {
             onLogout = onLogout,
 
             onStartSharing = ::startSharing,
+
+            onOpenLocationSettings = ::openLocationSettings,
 
             onAllowNoBatteryLimits = ::requestNoBatteryLimits,
 

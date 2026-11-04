@@ -7,13 +7,14 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import kotlin.math.roundToInt
 
+/**
+ * Works out the heading from the magnetic field and gravity. Gravity comes
+ * from AccelerometerManager, so the accelerometer is only listened to once.
+ */
 class CompassManager(context: Context) : SensorEventListener {
 
     private val sensorManager =
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-
-    private val accelerometer =
-        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
     private val magnetometer =
         sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
@@ -21,27 +22,28 @@ class CompassManager(context: Context) : SensorEventListener {
     private val gravity = FloatArray(3)
     private val geomagnetic = FloatArray(3)
 
+    private val rotationMatrix = FloatArray(9)
+    private val orientation = FloatArray(3)
+
     private var onHeadingChanged: ((Float) -> Unit)? = null
 
     fun startListening(callback: (Float) -> Unit) {
 
         onHeadingChanged = callback
 
-        accelerometer?.let {
-            sensorManager.registerListener(
-                this,
-                it,
-                SensorManager.SENSOR_DELAY_UI
-            )
-        }
-
         magnetometer?.let {
             sensorManager.registerListener(
                 this,
                 it,
-                SensorManager.SENSOR_DELAY_UI
+                SensorManager.SENSOR_DELAY_NORMAL
             )
         }
+    }
+
+    fun onGravityChanged(x: Float, y: Float, z: Float) {
+        gravity[0] = x
+        gravity[1] = y
+        gravity[2] = z
     }
 
     fun stopListening() {
@@ -50,19 +52,11 @@ class CompassManager(context: Context) : SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
 
-        when (event?.sensor?.type) {
-
-            Sensor.TYPE_ACCELEROMETER -> {
-                System.arraycopy(event.values, 0, gravity, 0, 3)
-            }
-
-            Sensor.TYPE_MAGNETIC_FIELD -> {
-                System.arraycopy(event.values, 0, geomagnetic, 0, 3)
-            }
+        if (event?.sensor?.type != Sensor.TYPE_MAGNETIC_FIELD) {
+            return
         }
 
-        val rotationMatrix = FloatArray(9)
-        val orientation = FloatArray(3)
+        System.arraycopy(event.values, 0, geomagnetic, 0, 3)
 
         if (SensorManager.getRotationMatrix(rotationMatrix, null, gravity, geomagnetic)) {
 

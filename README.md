@@ -13,6 +13,27 @@ You need [Android Studio](https://developer.android.com/studio) and an Android p
 
 To build from a terminal, run `gradlew.bat :app:assembleDebug` on Windows or `sh ./gradlew :app:assembleDebug` elsewhere. Android Studio's own Java works if you set `JAVA_HOME` to its `jbr` folder.
 
+## Build a version to share
+
+The version Android Studio's **Run** installs is for testing. To make one you can send to other phones, you need a release key. Create it once, outside any folder you share:
+
+```
+keytool -genkeypair -v -keystore release.jks -alias connected-vehicle -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Then create `keystore.properties` in this folder. Git ignores this file and `.jks` files, so neither is uploaded:
+
+```
+storeFile=release.jks
+storePassword=your password
+keyAlias=connected-vehicle
+keyPassword=your password
+```
+
+Build it with `gradlew.bat :app:assembleRelease`. The file is at `app/build/outputs/apk/release/app-release.apk`.
+
+Keep the key and its password safe. A phone can only update the app with the same key, so a lost key means uninstalling and installing again. For the same reason, a phone with the testing version must uninstall it first, which logs it out.
+
 ## Use it
 
 1. Create an account, then log in.
@@ -85,7 +106,7 @@ GitHub also builds the app and runs these on every push. Results are in the repo
 | Problem | What to check |
 |---|---|
 | Stuck on **Connecting…** | The phone's internet connection, and whether the server is awake. Free hosts can take a little while |
-| Stuck on **Finding your position** | Go outdoors, and make sure the phone's location is on |
+| Stuck on **Finding your position** | Go outdoors. GPS needs a clear view of the sky |
 | Car updates lag with the screen locked | Turn Battery Saver off, and remove the battery limits. Mobile data is also more dependable than Wi-Fi |
 | No **Stop sharing** button | Allow notifications for this app in the phone's settings |
 | Logged out unexpectedly | The account was probably used on another phone, or the 30-day login expired. Log in again |
