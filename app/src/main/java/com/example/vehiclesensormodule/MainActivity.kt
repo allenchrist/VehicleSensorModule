@@ -1,12 +1,15 @@
 package com.example.vehiclesensormodule
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 
@@ -272,6 +275,38 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    @SuppressLint("BatteryLife")
+    private fun requestNoBatteryLimits() {
+
+        openSettingsScreen(
+            Intent(
+                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                Uri.fromParts("package", packageName, null)
+            )
+        )
+    }
+
+
+    private fun openBatterySaverSettings() {
+
+        openSettingsScreen(
+            Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
+        )
+    }
+
+
+    // Not every phone has every settings screen
+    private fun openSettingsScreen(intent: Intent) {
+
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "Couldn't open that settings screen", e)
+            openAppSettings()
+        }
+    }
+
+
     private fun startSharing() {
 
         try {
@@ -360,6 +395,18 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(System.currentTimeMillis())
         }
 
+        val powerManager = remember {
+            getSystemService(PowerManager::class.java)
+        }
+
+        var batteryLimited by remember {
+            mutableStateOf(false)
+        }
+
+        var batterySaverOn by remember {
+            mutableStateOf(false)
+        }
+
         // Starts sharing once per opening of this screen. After Stop sharing
         // on the notification, rotating the phone doesn't start it again.
         var startedSharing by rememberSaveable {
@@ -367,10 +414,16 @@ class MainActivity : ComponentActivity() {
         }
 
 
-        // Notices when GPS updates have stopped arriving
+        // Notices when GPS updates have stopped arriving, and
+        // when the power settings that can delay them change
         LaunchedEffect(Unit) {
 
             while (true) {
+
+                batteryLimited =
+                    !powerManager.isIgnoringBatteryOptimizations(packageName)
+
+                batterySaverOn = powerManager.isPowerSaveMode
 
                 delay(1000)
 
@@ -410,6 +463,10 @@ class MainActivity : ComponentActivity() {
 
                 sharingOn = tracking.running || !startedSharing,
 
+                batteryLimited = batteryLimited,
+
+                batterySaverOn = batterySaverOn,
+
                 hasRecentFix =
                     fixTime != null && now - fixTime < GPS_FIX_TIMEOUT_MS,
 
@@ -430,7 +487,11 @@ class MainActivity : ComponentActivity() {
 
             onLogout = onLogout,
 
-            onStartSharing = ::startSharing
+            onStartSharing = ::startSharing,
+
+            onAllowNoBatteryLimits = ::requestNoBatteryLimits,
+
+            onOpenBatterySaver = ::openBatterySaverSettings
         )
     }
 }

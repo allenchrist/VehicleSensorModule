@@ -50,7 +50,6 @@ class VehicleWebSocketClient(context: Context) {
     }
 
     private var deviceId: String = ""
-    private var vehicleId: String? = null
 
     @Volatile
     var isConnected: Boolean = false
@@ -67,9 +66,6 @@ class VehicleWebSocketClient(context: Context) {
 
     // Vehicle assigned by backend
     var onVehicleAssigned: ((String) -> Unit)? = null
-
-    // Fleet update callback
-    var onFleetUpdate: ((List<VehicleData>) -> Unit)? = null
 
     init {
 
@@ -433,9 +429,6 @@ class VehicleWebSocketClient(context: Context) {
                     val assignedVehicleId =
                         json.optString("vehicleId")
 
-                    vehicleId =
-                        assignedVehicleId
-
                     Log.d(
                         TAG,
                         "REGISTERED"
@@ -449,15 +442,6 @@ class VehicleWebSocketClient(context: Context) {
                     onVehicleAssigned?.invoke(
                         assignedVehicleId
                     )
-                }
-
-                // --------------------------------------
-                // Fleet update
-                // --------------------------------------
-
-                "fleet_update" -> {
-
-                    handleFleetUpdate(json)
                 }
 
                 else -> {
@@ -474,169 +458,6 @@ class VehicleWebSocketClient(context: Context) {
             Log.e(
                 TAG,
                 "Failed to parse server message",
-                e
-            )
-        }
-    }
-
-    // --------------------------------------------------
-    // HANDLE FLEET UPDATE
-    // --------------------------------------------------
-
-    private fun handleFleetUpdate(
-        json: JSONObject
-    ) {
-
-        try {
-
-            val vehiclesArray =
-                json.optJSONArray("vehicles")
-
-            if (vehiclesArray == null) {
-
-                Log.w(
-                    TAG,
-                    "fleet_update contains no vehicles array"
-                )
-
-                return
-            }
-
-            val vehicles =
-                mutableListOf<VehicleData>()
-
-            for (
-            i in 0 until vehiclesArray.length()
-            ) {
-
-                val vehicle =
-                    vehiclesArray.getJSONObject(i)
-
-                val vehicleData =
-                    VehicleData(
-
-                        vehicleId =
-                            vehicle.optString(
-                                "vehicleId"
-                            ),
-
-                        lat =
-                            if (vehicle.isNull("lat"))
-                                null
-                            else
-                                vehicle.optDouble("lat"),
-
-                        lon =
-                            if (vehicle.isNull("lon"))
-                                null
-                            else
-                                vehicle.optDouble("lon"),
-
-                        heading =
-                            if (vehicle.isNull("heading"))
-                                null
-                            else
-                                vehicle.optDouble(
-                                    "heading"
-                                ),
-
-                        accelX =
-                            if (vehicle.isNull("accelX"))
-                                null
-                            else
-                                vehicle.optDouble(
-                                    "accelX"
-                                ),
-
-                        accelY =
-                            if (vehicle.isNull("accelY"))
-                                null
-                            else
-                                vehicle.optDouble(
-                                    "accelY"
-                                ),
-
-                        accelZ =
-                            if (vehicle.isNull("accelZ"))
-                                null
-                            else
-                                vehicle.optDouble(
-                                    "accelZ"
-                                ),
-
-                        gyroX =
-                            if (vehicle.isNull("gyroX"))
-                                null
-                            else
-                                vehicle.optDouble(
-                                    "gyroX"
-                                ),
-
-                        gyroY =
-                            if (vehicle.isNull("gyroY"))
-                                null
-                            else
-                                vehicle.optDouble(
-                                    "gyroY"
-                                ),
-
-                        gyroZ =
-                            if (vehicle.isNull("gyroZ"))
-                                null
-                            else
-                                vehicle.optDouble(
-                                    "gyroZ"
-                                ),
-
-                        connected =
-                            vehicle.optBoolean(
-                                "connected",
-                                false
-                            ),
-
-                        lastReceivedAt =
-                            if (
-                                vehicle.isNull(
-                                    "lastReceivedAt"
-                                )
-                            )
-                                null
-                            else
-                                vehicle.optLong(
-                                    "lastReceivedAt"
-                                )
-                    )
-
-                vehicles.add(vehicleData)
-            }
-
-            Log.d(
-                TAG,
-                "Fleet update received: " +
-                        "${vehicles.size} vehicles"
-            )
-
-            for (vehicle in vehicles) {
-
-                Log.d(
-                    TAG,
-                    "Vehicle ${vehicle.vehicleId}: " +
-                            "lat=${vehicle.lat}, " +
-                            "lon=${vehicle.lon}, " +
-                            "heading=${vehicle.heading}, " +
-                            "connected=${vehicle.connected}"
-                )
-            }
-
-            onFleetUpdate?.invoke(
-                vehicles
-            )
-
-        } catch (e: Exception) {
-
-            Log.e(
-                TAG,
-                "Failed to parse fleet update",
                 e
             )
         }
@@ -793,17 +614,5 @@ class VehicleWebSocketClient(context: Context) {
         isConnected = false
 
         onConnectionChanged?.invoke(false)
-    }
-
-    // --------------------------------------------------
-    // GETTERS
-    // --------------------------------------------------
-
-    fun getDeviceId(): String {
-        return deviceId
-    }
-
-    fun getVehicleId(): String? {
-        return vehicleId
     }
 }

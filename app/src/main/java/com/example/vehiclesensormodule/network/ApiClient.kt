@@ -23,16 +23,6 @@ object ApiClient {
         .addInterceptor(logging)
         .build()
 
-    // Existing API service
-    fun createService(serverIp: String): ApiService {
-        return Retrofit.Builder()
-            .baseUrl("http://${serverIp.trim()}/")
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(ApiService::class.java)
-    }
-
     // Authentication API
     val authService: AuthApiService by lazy {
         Retrofit.Builder()

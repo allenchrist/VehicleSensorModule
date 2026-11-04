@@ -77,6 +77,8 @@ data class DriveState(
     val backendConnected: Boolean,
     val locationAllowed: Boolean,
     val sharingOn: Boolean = true,
+    val batteryLimited: Boolean = false,
+    val batterySaverOn: Boolean = false,
     val hasRecentFix: Boolean,
     val latitude: Double,
     val longitude: Double,
@@ -137,7 +139,9 @@ fun MainScreen(
     onAllowLocation: () -> Unit,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
-    onStartSharing: () -> Unit = {}
+    onStartSharing: () -> Unit = {},
+    onAllowNoBatteryLimits: () -> Unit = {},
+    onOpenBatterySaver: () -> Unit = {}
 ) {
 
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
@@ -166,6 +170,24 @@ fun MainScreen(
                 onOpenSettings = onOpenSettings,
                 onStartSharing = onStartSharing
             )
+
+            if (state.batterySaverOn) {
+                PowerWarningCard(
+                    title = "Battery Saver is on",
+                    detail = "It can delay your position while the screen is locked. Turn it off while driving.",
+                    buttonText = "Open Battery Saver",
+                    onClick = onOpenBatterySaver
+                )
+            }
+
+            if (state.batteryLimited) {
+                PowerWarningCard(
+                    title = "Battery limits are on",
+                    detail = "Android can delay your position while the screen is locked. Remove the limits for this app.",
+                    buttonText = "Remove limits",
+                    onClick = onAllowNoBatteryLimits
+                )
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -453,6 +475,37 @@ private fun StatTile(
 }
 
 @Composable
+private fun PowerWarningCard(
+    title: String,
+    detail: String,
+    buttonText: String,
+    onClick: () -> Unit
+) {
+    AppCard {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = Warning
+        )
+
+        Spacer(modifier = Modifier.height(2.dp))
+
+        Text(
+            text = detail,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        PrimaryButton(
+            text = buttonText,
+            onClick = onClick
+        )
+    }
+}
+
+@Composable
 private fun CarScreenCard(username: String) {
     AppCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -495,7 +548,7 @@ private fun TipCard() {
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = "Sharing carries on with the screen off or the app closed. To stop it, use the notification or log out.",
+                    text = "Sharing carries on with the screen off. To stop it, close the app from recent apps, use the notification or log out.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )

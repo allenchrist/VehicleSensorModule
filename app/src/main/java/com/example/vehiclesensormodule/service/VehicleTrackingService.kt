@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.vehiclesensormodule.MainActivity
@@ -31,9 +32,9 @@ import com.example.vehiclesensormodule.sensors.GyroscopeManager
  * Owns the GPS, sensors and connection to the backend during a drive.
  *
  * The phone is only the vehicle's connectivity module, so it may sit with its
- * screen off or the app closed. Everything lives here, not in MainActivity,
- * so sharing carries on when Android closes the screen. It ends when the
- * driver logs out or taps Stop on the notification.
+ * screen off. Everything lives here, not in MainActivity, so sharing carries
+ * on when Android closes the screen. It ends when the driver closes the app
+ * from recent apps, logs out or taps Stop on the notification.
  *
  * MainActivity only displays what this publishes through TrackingState.
  */
@@ -51,6 +52,9 @@ class VehicleTrackingService : Service() {
 
         // Sensors report many times a second, far more often than a screen needs
         private const val SENSOR_PUBLISH_INTERVAL_MS = 500L
+
+        // GPS is requested every second, so a longer wait than this is a delay
+        private const val GPS_GAP_LOG_MS = 3000L
 
         // A safety limit, in case the service is never stopped
         private const val WAKE_LOCK_TIMEOUT_MS = 12 * 60 * 60 * 1000L
@@ -84,6 +88,8 @@ class VehicleTrackingService : Service() {
     // Latest readings, sent along with each GPS update
     private var sensors = SensorReadings()
     private var heading = 0f
+
+    private var lastLocationAt = 0L
 
     private val publishHandler = Handler(Looper.getMainLooper())
 
@@ -142,6 +148,14 @@ class VehicleTrackingService : Service() {
         // Android doesn't allow location tracking to restart without
         // the app being visible, so it's restarted by opening the app
         return START_NOT_STICKY
+    }
+
+    // The driver swiped the app away from recent apps
+    override fun onTaskRemoved(rootIntent: Intent?) {
+
+        stopSelf()
+
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
@@ -237,6 +251,14 @@ class VehicleTrackingService : Service() {
     }
 
     private fun onLocation(location: Location) {
+
+        val receivedAt = SystemClock.elapsedRealtime()
+
+        if (lastLocationAt != 0L && receivedAt - lastLocationAt > GPS_GAP_LOG_MS) {
+            Log.w(TAG, "No GPS update for ${receivedAt - lastLocationAt} ms")
+        }
+
+        lastLocationAt = receivedAt
 
         val speed = if (location.hasSpeed()) location.speed else null
         val accuracy = if (location.hasAccuracy()) location.accuracy else null
