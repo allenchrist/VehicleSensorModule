@@ -24,12 +24,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.lifecycleScope
 
+import com.example.vehiclesensormodule.auth.ForgotPasswordScreen
 import com.example.vehiclesensormodule.auth.LoginScreen
 import com.example.vehiclesensormodule.auth.SessionManager
 import com.example.vehiclesensormodule.auth.SignupScreen
 import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.network.ApiClient
 import com.example.vehiclesensormodule.network.CONNECTION_ERROR_MESSAGE
+import com.example.vehiclesensormodule.network.DeleteAccountRequest
 import com.example.vehiclesensormodule.network.DeviceAssociationRequest
 import com.example.vehiclesensormodule.network.DeviceIdentity
 import com.example.vehiclesensormodule.network.VehicleTypeRequest
@@ -107,6 +109,14 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(false)
             }
 
+            var showForgotPassword by remember {
+                mutableStateOf(false)
+            }
+
+            var passwordChanged by remember {
+                mutableStateOf(false)
+            }
+
             // Set after signing up, so the login screen can welcome them
             var newUsername by remember {
                 mutableStateOf<String?>(null)
@@ -138,6 +148,9 @@ class MainActivity : ComponentActivity() {
                 showSignup = false
 
                 newUsername = null
+
+                showForgotPassword = false
+                passwordChanged = false
             }
 
             LaunchedEffect(loginRejected) {
@@ -160,6 +173,20 @@ class MainActivity : ComponentActivity() {
                             unlinkThisPhone(sessionManager.getToken())
 
                             logOut()
+                        },
+
+                        onAccountDeleted = logOut
+                    )
+
+                    showForgotPassword -> ForgotPasswordScreen(
+
+                        onPasswordChanged = {
+                            passwordChanged = true
+                            showForgotPassword = false
+                        },
+
+                        onBackToLogin = {
+                            showForgotPassword = false
                         }
                     )
 
@@ -177,7 +204,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
 
-                    else -> key(newUsername) {
+                    else -> key(newUsername, passwordChanged) {
 
                         LoginScreen(
 
@@ -198,13 +225,19 @@ class MainActivity : ComponentActivity() {
                                 showSignup = true
                             },
 
+                            onForgotPassword = {
+                                showForgotPassword = true
+                            },
+
                             initialUsername = newUsername.orEmpty(),
 
                             initialError =
                                 if (loginRejected) LOGIN_REJECTED_MESSAGE else null,
 
-                            successMessage = newUsername?.let {
-                                "Account created. Log in to connect your vehicle."
+                            successMessage = when {
+                                passwordChanged -> "Password changed. Log in with your new password."
+                                newUsername != null -> "Account created. Log in to connect your vehicle."
+                                else -> null
                             }
                         )
                     }
@@ -391,6 +424,27 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    // Returns an error message to show, or null once the account is gone
+    private suspend fun deleteAccount(password: String): String? {
+
+        return try {
+
+            val response =
+                ApiClient.authService.deleteAccount(
+                    authorization = "Bearer ${sessionManager.getToken()}",
+                    request = DeleteAccountRequest(password)
+                )
+
+            if (response.isSuccessful) null
+            else response.readableError("Couldn't delete your account.")
+
+        } catch (e: Exception) {
+
+            CONNECTION_ERROR_MESSAGE
+        }
+    }
+
+
     private fun connect() {
 
         if (locationPermissionGranted) {
@@ -489,7 +543,8 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun VehicleScreen(
-        onLogout: () -> Unit
+        onLogout: () -> Unit,
+        onAccountDeleted: () -> Unit
     ) {
 
         val tracking by TrackingState.state.collectAsState()
@@ -605,6 +660,17 @@ class MainActivity : ComponentActivity() {
             onDisconnect = ::disconnect,
 
             onChangeVehicleType = ::changeVehicleType,
+
+            onDeleteAccount = { password ->
+
+                val error = deleteAccount(password)
+
+                if (error == null) {
+                    onAccountDeleted()
+                }
+
+                error
+            },
 
             onOpenLocationSettings = ::openLocationSettings,
 

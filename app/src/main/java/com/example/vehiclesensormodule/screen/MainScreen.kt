@@ -39,6 +39,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -57,6 +60,7 @@ import com.example.vehiclesensormodule.R
 import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.service.SensorReadings
 import com.example.vehiclesensormodule.ui.components.AppCard
+import com.example.vehiclesensormodule.ui.components.AppTextField
 import com.example.vehiclesensormodule.ui.components.BrandMark
 import com.example.vehiclesensormodule.ui.components.StatusDot
 import com.example.vehiclesensormodule.ui.components.VehiclePicker
@@ -74,7 +78,7 @@ import com.example.vehiclesensormodule.ui.theme.SurfaceRaised
 import com.example.vehiclesensormodule.ui.theme.TextMuted
 import com.example.vehiclesensormodule.ui.theme.TextSecondary
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
-import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import com.example.vehiclesensormodule.ui.theme.Warning
 
 data class DriveState(
@@ -156,6 +160,7 @@ fun MainScreen(
     onConnect: () -> Unit = {},
     onDisconnect: () -> Unit = {},
     onChangeVehicleType: (VehicleType) -> Unit = {},
+    onDeleteAccount: suspend (String) -> String? = { null },
     onOpenLocationSettings: () -> Unit = {},
     onAllowNoBatteryLimits: () -> Unit = {},
     onOpenBatterySaver: () -> Unit = {}
@@ -217,6 +222,8 @@ fun MainScreen(
             GuideCard(username = state.username)
 
             SensorDetailsCard(state = state)
+
+            DeleteAccountButton(onDeleteAccount = onDeleteAccount)
 
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -523,6 +530,88 @@ private fun gpsQuality(state: DriveState): Pair<String, Color> {
         accuracy == null || accuracy <= 15f -> "Good" to Success
         accuracy <= 50f -> "Fair" to Warning
         else -> "Weak" to Warning
+    }
+}
+
+@Composable
+private fun DeleteAccountButton(
+    onDeleteAccount: suspend (String) -> String?
+) {
+    var confirming by rememberSaveable { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+
+    TextButton(
+        onClick = {
+            password = ""
+            errorMessage = null
+            confirming = true
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Delete account", color = Danger)
+    }
+
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!deleting) confirming = false
+            },
+            containerColor = SurfaceRaised,
+            title = { Text("Delete your account?") },
+            text = {
+                Column {
+                    Text(
+                        "This permanently deletes your account and logs you out on every device. It can't be undone.",
+                        color = TextSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    AppTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            errorMessage = null
+                        },
+                        label = "Your password",
+                        icon = R.drawable.ic_lock,
+                        isPassword = true,
+                        imeAction = ImeAction.Done,
+                        errorText = errorMessage,
+                        enabled = !deleting
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            deleting = true
+                            errorMessage = onDeleteAccount(password)
+                            deleting = false
+                        }
+                    },
+                    enabled = password.isNotEmpty() && !deleting
+                ) {
+                    Text(
+                        if (deleting) "Deleting…" else "Delete",
+                        color = if (password.isNotEmpty() && !deleting) Danger else TextMuted
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirming = false },
+                    enabled = !deleting
+                ) {
+                    Text("Keep account")
+                }
+            }
+        )
     }
 }
 

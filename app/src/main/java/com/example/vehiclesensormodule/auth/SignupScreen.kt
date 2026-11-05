@@ -54,6 +54,22 @@ private val USERNAME_PATTERN = Regex("^[A-Za-z0-9_.-]+$")
 
 private const val USERNAME_MAX_LENGTH = 50
 
+// Returns an error message to show, or null if the code was sent
+private suspend fun sendCode(request: RegisterRequest): String? {
+
+    return try {
+
+        val response = ApiClient.authService.startSignup(request)
+
+        if (response.isSuccessful) null
+        else response.readableError("Couldn't create your account.")
+
+    } catch (e: Exception) {
+
+        CONNECTION_ERROR_MESSAGE
+    }
+}
+
 @Composable
 fun SignupScreen(
     onSignupSuccess: (username: String) -> Unit,
@@ -71,6 +87,9 @@ fun SignupScreen(
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Set once a code has been emailed
+    var codeSentTo by rememberSaveable { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
 
@@ -113,37 +132,46 @@ fun SignupScreen(
             isLoading = true
             errorMessage = null
 
-            try {
+            val error = sendCode(
+                RegisterRequest(
+                    username = trimmedUsername,
+                    email = trimmedEmail,
+                    password = password,
+                    vehicleType = vehicleType.id
+                )
+            )
 
-                val response =
-                    ApiClient.authService.register(
-                        RegisterRequest(
-                            username = trimmedUsername,
-                            email = trimmedEmail,
-                            password = password,
-                            vehicleType = vehicleType.id
-                        )
-                    )
-
-                if (response.isSuccessful) {
-
-                    onSignupSuccess(trimmedUsername)
-
-                } else {
-
-                    errorMessage =
-                        response.readableError("Couldn't create your account.")
-                }
-
-            } catch (e: Exception) {
-
-                errorMessage = CONNECTION_ERROR_MESSAGE
-
-            } finally {
-
-                isLoading = false
+            if (error == null) {
+                codeSentTo = trimmedEmail
+            } else {
+                errorMessage = error
             }
+
+            isLoading = false
         }
+    }
+
+    val sentTo = codeSentTo
+
+    if (sentTo != null) {
+
+        VerifyEmailScreen(
+            email = sentTo,
+            onVerified = { onSignupSuccess(trimmedUsername) },
+            onResend = {
+                sendCode(
+                    RegisterRequest(
+                        username = trimmedUsername,
+                        email = trimmedEmail,
+                        password = password,
+                        vehicleType = vehicleType.id
+                    )
+                )
+            },
+            onBack = { codeSentTo = null }
+        )
+
+        return
     }
 
     ScreenBackground {
@@ -205,7 +233,7 @@ fun SignupScreen(
                     email = it
                     errorMessage = null
                 },
-                label = "Email",
+                label = "Email (we'll send a code)",
                 icon = R.drawable.ic_email,
                 keyboardType = KeyboardType.Email,
                 errorText = emailError.takeIf { showErrors },

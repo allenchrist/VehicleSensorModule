@@ -3,6 +3,7 @@ package com.example.vehiclesensormodule.network
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -33,9 +34,36 @@ data class RegisterRequest(
     val vehicleType: String
 )
 
+data class VerifySignupRequest(
+    val email: String,
+    val code: String
+)
+
 data class RegisterResponse(
     val message: String,
     val user: User
+)
+
+// --------------------------------------------------
+// FORGOTTEN PASSWORD AND DELETING AN ACCOUNT
+// --------------------------------------------------
+
+data class ForgotPasswordRequest(
+    val email: String
+)
+
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val newPassword: String
+)
+
+data class DeleteAccountRequest(
+    val password: String
+)
+
+data class MessageResponse(
+    val message: String
 )
 
 // --------------------------------------------------
@@ -89,10 +117,31 @@ interface AuthApiService {
         @Body request: LoginRequest
     ): Response<LoginResponse>
 
-    @POST("api/auth/register")
-    suspend fun register(
+    @POST("api/auth/register/start")
+    suspend fun startSignup(
         @Body request: RegisterRequest
+    ): Response<MessageResponse>
+
+    @POST("api/auth/register/verify")
+    suspend fun verifySignup(
+        @Body request: VerifySignupRequest
     ): Response<RegisterResponse>
+
+    @POST("api/auth/password/forgot")
+    suspend fun forgotPassword(
+        @Body request: ForgotPasswordRequest
+    ): Response<MessageResponse>
+
+    @POST("api/auth/password/reset")
+    suspend fun resetPassword(
+        @Body request: ResetPasswordRequest
+    ): Response<MessageResponse>
+
+    @HTTP(method = "DELETE", path = "api/auth/account", hasBody = true)
+    suspend fun deleteAccount(
+        @Header("Authorization") authorization: String,
+        @Body request: DeleteAccountRequest
+    ): Response<MessageResponse>
 
     @GET("api/auth/profile")
     suspend fun getProfile(

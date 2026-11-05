@@ -379,6 +379,31 @@ fun VehiclePicker(
     }
 }
 
+/** The six-digit code from an email. */
+@Composable
+fun CodeField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    enabled: Boolean,
+    imeAction: ImeAction = ImeAction.Next,
+    onDone: () -> Unit = {}
+) {
+    AppTextField(
+        value = value,
+        onValueChange = { typed ->
+            onValueChange(typed.filter(Char::isDigit).take(CODE_LENGTH))
+        },
+        label = "6-digit code",
+        icon = R.drawable.ic_email,
+        keyboardType = KeyboardType.NumberPassword,
+        imeAction = imeAction,
+        onDone = onDone,
+        enabled = enabled
+    )
+}
+
+const val CODE_LENGTH = 6
+
 /** Space between stacked form controls. */
 @Composable
 fun FormGap() {

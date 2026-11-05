@@ -48,6 +48,7 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     onLoginSuccess: suspend (token: String, username: String) -> String?,
     onCreateAccount: () -> Unit,
+    onForgotPassword: () -> Unit = {},
     initialUsername: String = "",
     initialError: String? = null,
     successMessage: String? = null
@@ -167,7 +168,15 @@ fun LoginScreen(
                 enabled = !isLoading
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            TextButton(
+                onClick = onForgotPassword,
+                enabled = !isLoading,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Forgot password?")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             PrimaryButton(
                 text = "Log in",

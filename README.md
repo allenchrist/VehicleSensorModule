@@ -36,12 +36,14 @@ Keep the key and its password safe. A phone can only update the app with the sam
 
 ## Use it
 
-1. Create an account and choose what you drive: car, truck, lorry, bus or auto. Then log in. You can change the vehicle later on the main screen.
+1. Create an account and choose what you drive: car, truck, lorry, bus or auto. Enter the code we email you, then log in. You can change the vehicle later on the main screen.
 2. Tap **Connect**. Allow location, and allow notifications so you can see the **Stop sharing** button.
 3. If the app shows **Battery limits are on** or **Battery Saver is on**, follow its button. These can delay your position while the screen is locked.
 4. Open the dashboard website and log in with the same account.
 
 Each phone needs its own account. Logging in on a new phone moves the account to that phone.
+
+If you forget your password, tap **Forgot password?** on the login screen to get a code by email. To delete your account, scroll to the bottom of the main screen and tap **Delete account**.
 
 ## When it shares your position
 
@@ -106,6 +108,7 @@ GitHub also builds the app and runs these on every push. Results are in the repo
 
 | Problem | What to check |
 |---|---|
+| The email code doesn't arrive | Check your spam folder and that the address is right. You can ask for a new code after a minute |
 | Stuck on **Connecting…** | The phone's internet connection, and whether the server is awake. Free hosts can take a little while |
 | Stuck on **Finding your position** | Go outdoors. GPS needs a clear view of the sky |
 | Car updates lag with the screen locked | Turn Battery Saver off, and remove the battery limits. Mobile data is also more dependable than Wi-Fi |
