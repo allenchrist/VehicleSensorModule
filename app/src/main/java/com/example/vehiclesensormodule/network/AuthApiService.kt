@@ -2,8 +2,10 @@ package com.example.vehiclesensormodule.network
 
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 
 // --------------------------------------------------
 // LOGIN
@@ -27,7 +29,8 @@ data class LoginResponse(
 data class RegisterRequest(
     val username: String,
     val email: String,
-    val password: String
+    val password: String,
+    val vehicleType: String
 )
 
 data class RegisterResponse(
@@ -55,7 +58,24 @@ data class DeviceAssociationResponse(
 
 data class User(
     val username: String,
-    val email: String
+    val email: String,
+    val vehicleType: String?
+)
+
+data class ProfileResponse(
+    val user: User
+)
+
+// --------------------------------------------------
+// VEHICLE TYPE
+// --------------------------------------------------
+
+data class VehicleTypeRequest(
+    val vehicleType: String
+)
+
+data class VehicleTypeResponse(
+    val vehicleType: String
 )
 
 // --------------------------------------------------
@@ -73,6 +93,17 @@ interface AuthApiService {
     suspend fun register(
         @Body request: RegisterRequest
     ): Response<RegisterResponse>
+
+    @GET("api/auth/profile")
+    suspend fun getProfile(
+        @Header("Authorization") authorization: String
+    ): Response<ProfileResponse>
+
+    @PUT("api/auth/vehicle-type")
+    suspend fun updateVehicleType(
+        @Header("Authorization") authorization: String,
+        @Body request: VehicleTypeRequest
+    ): Response<VehicleTypeResponse>
 
     @POST("api/auth/device")
     suspend fun associateDevice(

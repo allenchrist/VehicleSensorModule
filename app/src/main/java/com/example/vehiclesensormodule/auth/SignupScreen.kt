@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
+import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.network.ApiClient
 import com.example.vehiclesensormodule.network.CONNECTION_ERROR_MESSAGE
 import com.example.vehiclesensormodule.network.RegisterRequest
@@ -41,6 +42,7 @@ import com.example.vehiclesensormodule.ui.components.MessageBanner
 import com.example.vehiclesensormodule.ui.components.MessageKind
 import com.example.vehiclesensormodule.ui.components.PrimaryButton
 import com.example.vehiclesensormodule.ui.components.ScreenBackground
+import com.example.vehiclesensormodule.ui.components.VehiclePicker
 import com.example.vehiclesensormodule.ui.theme.TextSecondary
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
 import kotlinx.coroutines.launch
@@ -62,6 +64,7 @@ fun SignupScreen(
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var vehicleType by rememberSaveable { mutableStateOf(VehicleType.Car) }
 
     // Field errors appear after the first attempt, not while typing for the first time
     var showErrors by remember { mutableStateOf(false) }
@@ -117,7 +120,8 @@ fun SignupScreen(
                         RegisterRequest(
                             username = trimmedUsername,
                             email = trimmedEmail,
-                            password = password
+                            password = password,
+                            vehicleType = vehicleType.id
                         )
                     )
 
@@ -208,7 +212,22 @@ fun SignupScreen(
                 enabled = !isLoading
             )
 
-            FormGap()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "What do you drive?",
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            VehiclePicker(
+                selected = vehicleType,
+                onSelected = { vehicleType = it },
+                enabled = !isLoading
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             AppTextField(
                 value = password,

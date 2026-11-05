@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +46,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,6 +54,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
+import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.ui.theme.Accent
 import com.example.vehiclesensormodule.ui.theme.AccentDeep
 import com.example.vehiclesensormodule.ui.theme.Background
@@ -312,6 +316,66 @@ fun MessageBanner(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+/** One tile for each vehicle type, used at signup and when changing it later. */
+@Composable
+fun VehiclePicker(
+    selected: VehicleType?,
+    onSelected: (VehicleType) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        VehicleType.entries.forEach { type ->
+
+            val isSelected = type == selected
+
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(ControlShape)
+                    .selectable(
+                        selected = isSelected,
+                        enabled = enabled,
+                        role = Role.RadioButton,
+                        onClick = { onSelected(type) }
+                    ),
+                shape = ControlShape,
+                color = if (isSelected) Accent.copy(alpha = 0.14f) else SurfaceCard,
+                border = BorderStroke(
+                    width = if (isSelected) 1.5.dp else 1.dp,
+                    color = if (isSelected) Accent else OutlineSubtle
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        painter = painterResource(type.icon),
+                        contentDescription = null,
+                        tint = if (isSelected) Accent else TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = type.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isSelected) TextPrimary else TextSecondary,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
     }
 }
 

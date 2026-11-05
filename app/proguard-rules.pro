@@ -7,6 +7,9 @@
 -keep class com.example.vehiclesensormodule.network.DeviceAssociationRequest { *; }
 -keep class com.example.vehiclesensormodule.network.DeviceAssociationResponse { *; }
 -keep class com.example.vehiclesensormodule.network.User { *; }
+-keep class com.example.vehiclesensormodule.network.ProfileResponse { *; }
+-keep class com.example.vehiclesensormodule.network.VehicleTypeRequest { *; }
+-keep class com.example.vehiclesensormodule.network.VehicleTypeResponse { *; }
 
 # No routine debug logs in the release version
 -assumenosideeffects class android.util.Log {

@@ -27,10 +27,12 @@ import androidx.lifecycle.lifecycleScope
 import com.example.vehiclesensormodule.auth.LoginScreen
 import com.example.vehiclesensormodule.auth.SessionManager
 import com.example.vehiclesensormodule.auth.SignupScreen
+import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.network.ApiClient
 import com.example.vehiclesensormodule.network.CONNECTION_ERROR_MESSAGE
 import com.example.vehiclesensormodule.network.DeviceAssociationRequest
 import com.example.vehiclesensormodule.network.DeviceIdentity
+import com.example.vehiclesensormodule.network.VehicleTypeRequest
 import com.example.vehiclesensormodule.network.readableError
 import com.example.vehiclesensormodule.screen.DriveState
 import com.example.vehiclesensormodule.screen.MainScreen
@@ -47,6 +49,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
 
+        // Keeps trying if the server is waking up when the app opens
+        private const val PROFILE_RETRY_MS = 10_000L
+
         // With no GPS update for this long, the screen says it is searching again
         private const val GPS_FIX_TIMEOUT_MS = 10_000L
 
@@ -60,6 +65,10 @@ class MainActivity : ComponentActivity() {
 
     // The driver tapped Connect and location hasn't been allowed yet
     private var connectAfterPermission by mutableStateOf(false)
+
+    private var vehicleType by mutableStateOf<VehicleType?>(null)
+
+    private var vehicleTypeError by mutableStateOf<String?>(null)
 
     private val locationPermissionRequest =
         registerForActivityResult(
@@ -115,6 +124,9 @@ class MainActivity : ComponentActivity() {
 
                 // Clear saved JWT and username
                 sessionManager.clearSession()
+
+                vehicleType = null
+                vehicleTypeError = null
 
                 // Stop sharing
                 VehicleTrackingService.stop(this@MainActivity)
@@ -319,6 +331,66 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    private suspend fun loadVehicleType() {
+
+        while (vehicleType == null) {
+
+            try {
+
+                val response =
+                    ApiClient.authService.getProfile(
+                        "Bearer ${sessionManager.getToken()}"
+                    )
+
+                response.body()?.let {
+                    vehicleType = VehicleType.fromId(it.user.vehicleType)
+                }
+
+            } catch (e: Exception) {
+
+                Log.w(TAG, "Couldn't load the vehicle type", e)
+            }
+
+            if (vehicleType == null) {
+                delay(PROFILE_RETRY_MS)
+            }
+        }
+    }
+
+
+    private fun changeVehicleType(newType: VehicleType) {
+
+        val previousType = vehicleType
+
+        // Shown straight away, and put back if the server refuses
+        vehicleType = newType
+        vehicleTypeError = null
+
+        lifecycleScope.launch {
+
+            try {
+
+                val response =
+                    ApiClient.authService.updateVehicleType(
+                        authorization = "Bearer ${sessionManager.getToken()}",
+                        request = VehicleTypeRequest(newType.id)
+                    )
+
+                if (!response.isSuccessful) {
+                    vehicleType = previousType
+                    vehicleTypeError =
+                        response.readableError("Couldn't save your vehicle type.")
+                }
+
+            } catch (e: Exception) {
+
+                vehicleType = previousType
+                vehicleTypeError = CONNECTION_ERROR_MESSAGE
+            }
+        }
+    }
+
+
     private fun connect() {
 
         if (locationPermissionGranted) {
@@ -467,6 +539,11 @@ class MainActivity : ComponentActivity() {
         }
 
 
+        LaunchedEffect(Unit) {
+            loadVehicleType()
+        }
+
+
         LaunchedEffect(locationPermissionGranted, connectAfterPermission) {
 
             if (locationPermissionGranted && connectAfterPermission) {
@@ -493,6 +570,10 @@ class MainActivity : ComponentActivity() {
                 locationAllowed = locationPermissionGranted || !connectAfterPermission,
 
                 sharingOn = tracking.running,
+
+                vehicleType = vehicleType,
+
+                vehicleTypeError = vehicleTypeError,
 
                 phoneLocationOn = phoneLocationOn,
 
@@ -522,6 +603,8 @@ class MainActivity : ComponentActivity() {
             onConnect = ::connect,
 
             onDisconnect = ::disconnect,
+
+            onChangeVehicleType = ::changeVehicleType,
 
             onOpenLocationSettings = ::openLocationSettings,
 

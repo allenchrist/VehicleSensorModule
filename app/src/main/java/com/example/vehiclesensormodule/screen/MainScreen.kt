@@ -54,10 +54,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
+import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.service.SensorReadings
 import com.example.vehiclesensormodule.ui.components.AppCard
 import com.example.vehiclesensormodule.ui.components.BrandMark
 import com.example.vehiclesensormodule.ui.components.StatusDot
+import com.example.vehiclesensormodule.ui.components.VehiclePicker
 import com.example.vehiclesensormodule.ui.components.CardShape
 import com.example.vehiclesensormodule.ui.components.ControlShape
 import com.example.vehiclesensormodule.ui.components.PrimaryButton
@@ -81,6 +83,8 @@ data class DriveState(
     val backendConnected: Boolean,
     val locationAllowed: Boolean,
     val sharingOn: Boolean = true,
+    val vehicleType: VehicleType? = null,
+    val vehicleTypeError: String? = null,
     val phoneLocationOn: Boolean = true,
     val batteryLimited: Boolean = false,
     val batterySaverOn: Boolean = false,
@@ -151,6 +155,7 @@ fun MainScreen(
     onLogout: () -> Unit,
     onConnect: () -> Unit = {},
     onDisconnect: () -> Unit = {},
+    onChangeVehicleType: (VehicleType) -> Unit = {},
     onOpenLocationSettings: () -> Unit = {},
     onAllowNoBatteryLimits: () -> Unit = {},
     onOpenBatterySaver: () -> Unit = {}
@@ -201,6 +206,11 @@ fun MainScreen(
                     onClick = onAllowNoBatteryLimits
                 )
             }
+
+            VehicleCard(
+                state = state,
+                onChangeVehicleType = onChangeVehicleType
+            )
 
             ConnectionCard(state = state)
 
@@ -517,6 +527,95 @@ private fun gpsQuality(state: DriveState): Pair<String, Color> {
 }
 
 @Composable
+private fun VehicleCard(
+    state: DriveState,
+    onChangeVehicleType: (VehicleType) -> Unit
+) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+
+    val type = state.vehicleType
+
+    AppCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Accent.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(type?.icon ?: R.drawable.ic_car),
+                    contentDescription = null,
+                    tint = Accent,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Your vehicle",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted
+                )
+
+                Text(
+                    text = when {
+                        type == null -> "Loading…"
+                        state.vehicleId.isEmpty() -> type.label
+                        else -> state.vehicleId.replace("VEHICLE_", "${type.label} ")
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1
+                )
+            }
+
+            TextButton(
+                onClick = { choosing = true },
+                enabled = type != null
+            ) {
+                Text("Change", style = MaterialTheme.typography.titleSmall)
+            }
+        }
+
+        if (state.vehicleTypeError != null) {
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = state.vehicleTypeError,
+                style = MaterialTheme.typography.bodySmall,
+                color = Danger
+            )
+        }
+    }
+
+    if (choosing) {
+        AlertDialog(
+            onDismissRequest = { choosing = false },
+            containerColor = SurfaceRaised,
+            title = { Text("What do you drive?") },
+            text = {
+                VehiclePicker(
+                    selected = type,
+                    onSelected = {
+                        choosing = false
+                        onChangeVehicleType(it)
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { choosing = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
 private fun ConnectionCard(state: DriveState) {
 
     val (gpsText, gpsColor) = gpsQuality(state)
@@ -525,15 +624,6 @@ private fun ConnectionCard(state: DriveState) {
         SectionLabel("Connection")
 
         Spacer(modifier = Modifier.height(6.dp))
-
-        if (state.vehicleId.isNotEmpty()) {
-            ConnectionRow(
-                label = "Vehicle",
-                value = state.vehicleId.replace("VEHICLE_", "Vehicle ")
-            )
-
-            RowDivider()
-        }
 
         ConnectionRow(
             label = "Server",
@@ -798,6 +888,7 @@ private fun ReadingRow(
 private val PreviewState = DriveState(
     username = "allenchrist",
     vehicleId = "VEHICLE_001",
+    vehicleType = VehicleType.Car,
     backendConnected = true,
     locationAllowed = true,
     hasRecentFix = true,
