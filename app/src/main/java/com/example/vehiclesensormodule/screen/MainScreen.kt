@@ -147,7 +147,16 @@ private fun DriveState.status(): DriveStatus = when {
 }
 
 private fun compassPoint(degrees: Float): String {
-    val points = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+    val points = listOf(
+        "North",
+        "North-East",
+        "East",
+        "South-East",
+        "South",
+        "South-West",
+        "West",
+        "North-West"
+    )
     return points[(((degrees % 360) + 360) / 45f + 0.5f).toInt() % points.size]
 }
 
@@ -167,6 +176,7 @@ fun MainScreen(
 ) {
 
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
+    var showAccount by rememberSaveable { mutableStateOf(false) }
 
     val status = state.status()
 
@@ -182,7 +192,8 @@ fun MainScreen(
 
             TopBar(
                 username = state.username,
-                onLogout = { confirmLogout = true }
+                onLogout = { confirmLogout = true },
+                onOpenAccount = { showAccount = true }
             )
 
             StatusHero(
@@ -223,9 +234,15 @@ fun MainScreen(
 
             SensorDetailsCard(state = state)
 
-            DeleteAccountButton(onDeleteAccount = onDeleteAccount)
-
             Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        if (showAccount) {
+            AccountDialogs(
+                state = state,
+                onDismiss = { showAccount = false },
+                onDeleteAccount = onDeleteAccount
+            )
         }
 
         if (confirmLogout) {
@@ -257,17 +274,36 @@ fun MainScreen(
 @Composable
 private fun TopBar(
     username: String,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onOpenAccount: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        BrandMark(size = 40.dp, iconSize = 22.dp)
+        BrandMark(
+            size = 40.dp,
+            iconSize = 22.dp,
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = "Open your account",
+                    onClick = onOpenAccount
+                )
+        )
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = "Open your account",
+                    onClick = onOpenAccount
+                )
+        ) {
             Text(
                 text = "Connected Vehicle",
                 style = MaterialTheme.typography.bodySmall,
@@ -533,8 +569,14 @@ private fun gpsQuality(state: DriveState): Pair<String, Color> {
     }
 }
 
+/**
+ * Opens from the icon next to the driver's name. Deleting is a second
+ * step, with the password, so it can't happen by accident.
+ */
 @Composable
-private fun DeleteAccountButton(
+private fun AccountDialogs(
+    state: DriveState,
+    onDismiss: () -> Unit,
     onDeleteAccount: suspend (String) -> String?
 ) {
     var confirming by rememberSaveable { mutableStateOf(false) }
@@ -544,75 +586,98 @@ private fun DeleteAccountButton(
 
     val scope = rememberCoroutineScope()
 
-    TextButton(
-        onClick = {
-            password = ""
-            errorMessage = null
-            confirming = true
-        },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Delete account", color = Danger)
-    }
-
-    if (confirming) {
+    if (!confirming) {
         AlertDialog(
-            onDismissRequest = {
-                if (!deleting) confirming = false
-            },
+            onDismissRequest = onDismiss,
             containerColor = SurfaceRaised,
-            title = { Text("Delete your account?") },
+            title = { Text("Your account") },
             text = {
                 Column {
                     Text(
-                        "This permanently deletes your account and logs you out on every device. It can't be undone.",
-                        color = TextSecondary
+                        text = state.username,
+                        style = MaterialTheme.typography.titleMedium
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    AppTextField(
-                        value = password,
-                        onValueChange = {
-                            password = it
-                            errorMessage = null
-                        },
-                        label = "Your password",
-                        icon = R.drawable.ic_lock,
-                        isPassword = true,
-                        imeAction = ImeAction.Done,
-                        errorText = errorMessage,
-                        enabled = !deleting
-                    )
+                    state.vehicleType?.let {
+                        Text(
+                            text = it.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            deleting = true
-                            errorMessage = onDeleteAccount(password)
-                            deleting = false
-                        }
-                    },
-                    enabled = password.isNotEmpty() && !deleting
-                ) {
-                    Text(
-                        if (deleting) "Deleting…" else "Delete",
-                        color = if (password.isNotEmpty() && !deleting) Danger else TextMuted
-                    )
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { confirming = false },
-                    enabled = !deleting
-                ) {
-                    Text("Keep account")
+                TextButton(onClick = { confirming = true }) {
+                    Text("Delete account", color = Danger)
                 }
             }
         )
+
+        return
     }
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!deleting) onDismiss()
+        },
+        containerColor = SurfaceRaised,
+        title = { Text("Delete your account?") },
+        text = {
+            Column {
+                Text(
+                    "This permanently deletes your account and logs you out on every device. It can't be undone.",
+                    color = TextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                AppTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        errorMessage = null
+                    },
+                    label = "Your password",
+                    icon = R.drawable.ic_lock,
+                    isPassword = true,
+                    imeAction = ImeAction.Done,
+                    errorText = errorMessage,
+                    enabled = !deleting
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    scope.launch {
+                        deleting = true
+                        errorMessage = onDeleteAccount(password)
+                        deleting = false
+                    }
+                },
+                enabled = password.isNotEmpty() && !deleting
+            ) {
+                Text(
+                    if (deleting) "Deleting…" else "Delete",
+                    color = if (password.isNotEmpty() && !deleting) Danger else TextMuted
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !deleting
+            ) {
+                Text("Keep account")
+            }
+        }
+    )
 }
 
 @Composable
@@ -747,8 +812,8 @@ private fun ConnectionCard(state: DriveState) {
         RowDivider()
 
         ConnectionRow(
-            label = "Facing",
-            value = compassPoint(state.heading)
+            label = "Heading",
+            value = if (state.sharingOn) compassPoint(state.heading) else "—"
         )
     }
 }
@@ -910,6 +975,16 @@ private fun SensorDetailsCard(state: DriveState) {
                         values = listOf(
                             "Lat" to "%.6f".format(state.latitude),
                             "Lon" to "%.6f".format(state.longitude)
+                        )
+                    )
+
+                    ReadingRow(
+                        label = "Heading",
+                        values = listOf(
+                            "Degrees" to
+                                if (state.sharingOn) "%.0f°".format(state.heading) else "—",
+                            "Direction" to
+                                if (state.sharingOn) compassPoint(state.heading) else "—"
                         )
                     )
 

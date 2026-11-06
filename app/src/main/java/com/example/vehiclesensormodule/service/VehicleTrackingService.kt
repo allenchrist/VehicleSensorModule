@@ -48,8 +48,13 @@ class VehicleTrackingService : Service() {
 
         private const val ACTION_STOP = "com.example.vehiclesensormodule.STOP_SHARING"
 
-        // Sensors report several times a second, more often than a screen needs
-        private const val SENSOR_PUBLISH_INTERVAL_MS = 1000L
+        // Often enough for the heading on screen to follow a turn
+        private const val SENSOR_PUBLISH_INTERVAL_MS = 300L
+
+        // GPS only arrives about once a second, so a turn is also sent on
+        // its own, as soon as the compass moves this far
+        private const val HEADING_SEND_DEGREES = 3f
+        private const val HEADING_SEND_INTERVAL_MS = 150L
 
         // GPS is requested every second, so a longer wait than this is a delay
         private const val GPS_GAP_LOG_MS = 3000L
@@ -88,6 +93,9 @@ class VehicleTrackingService : Service() {
     private var heading = 0f
 
     private var lastLocationAt = 0L
+
+    private var sentHeading = 0f
+    private var headingSentAt = 0L
 
     private val publishHandler = Handler(Looper.getMainLooper())
 
@@ -243,11 +251,36 @@ class VehicleTrackingService : Service() {
             sensors = sensors.copy(gyroX = x, gyroY = y, gyroZ = z)
         }
 
-        compassManager.startListening {
-            heading = it
-        }
+        compassManager.startListening(::onHeading)
 
         publishHandler.post(publishSensors)
+    }
+
+    private fun onHeading(newHeading: Float) {
+
+        heading = newHeading
+
+        val now = SystemClock.elapsedRealtime()
+
+        // The backend only takes a heading once it knows where the car is
+        if (
+            lastLocationAt == 0L ||
+            now - headingSentAt < HEADING_SEND_INTERVAL_MS ||
+            angleBetween(newHeading, sentHeading) < HEADING_SEND_DEGREES
+        ) {
+            return
+        }
+
+        if (vehicleClient.sendHeading(newHeading)) {
+            sentHeading = newHeading
+            headingSentAt = now
+        }
+    }
+
+    private fun angleBetween(a: Float, b: Float): Float {
+        val difference = Math.abs(a - b) % 360f
+
+        return if (difference > 180f) 360f - difference else difference
     }
 
     private fun onLocation(location: Location) {
@@ -271,6 +304,9 @@ class VehicleTrackingService : Service() {
                 lastFixAt = System.currentTimeMillis()
             )
         }
+
+        sentHeading = heading
+        headingSentAt = receivedAt
 
         vehicleClient.sendTelemetry(
             latitude = location.latitude,

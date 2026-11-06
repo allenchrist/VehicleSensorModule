@@ -5,13 +5,22 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * Works out the heading from the magnetic field and gravity. Gravity comes
  * from AccelerometerManager, so the accelerometer is only listened to once.
  */
 class CompassManager(context: Context) : SensorEventListener {
+
+    private companion object {
+        // Each reading moves the heading this far towards the new value. It
+        // settles in well under a second, but small jitter is smoothed out.
+        const val SMOOTHING = 0.5f
+    }
 
     private val sensorManager =
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -26,6 +35,11 @@ class CompassManager(context: Context) : SensorEventListener {
     private val orientation = FloatArray(3)
 
     private var onHeadingChanged: ((Float) -> Unit)? = null
+
+    // Smoothed as a direction, so 359° and 1° average to 0°, not 180°
+    private var smoothSin = 0f
+    private var smoothCos = 0f
+    private var hasHeading = false
 
     fun startListening(callback: (Float) -> Unit) {
 
@@ -62,7 +76,20 @@ class CompassManager(context: Context) : SensorEventListener {
 
             SensorManager.getOrientation(rotationMatrix, orientation)
 
-            var heading = Math.toDegrees(orientation[0].toDouble()).toFloat()
+            val angle = orientation[0]
+
+            if (hasHeading) {
+                smoothSin += (sin(angle) - smoothSin) * SMOOTHING
+                smoothCos += (cos(angle) - smoothCos) * SMOOTHING
+            } else {
+                smoothSin = sin(angle)
+                smoothCos = cos(angle)
+                hasHeading = true
+            }
+
+            var heading = Math.toDegrees(
+                atan2(smoothSin, smoothCos).toDouble()
+            ).toFloat()
 
             if (heading < 0)
                 heading += 360f

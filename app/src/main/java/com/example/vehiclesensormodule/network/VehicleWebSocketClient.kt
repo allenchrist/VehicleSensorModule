@@ -588,6 +588,29 @@ class VehicleWebSocketClient(context: Context) {
     }
 
     // --------------------------------------------------
+    // SEND HEADING
+    //
+    // Only the compass, so a turn shows on the screen
+    // without waiting for the next GPS update.
+    // --------------------------------------------------
+
+    fun sendHeading(heading: Float): Boolean {
+
+        val socket = webSocket
+
+        if (!isConnected || socket == null) {
+            return false
+        }
+
+        val message = JSONObject().apply {
+            put("type", "heading")
+            put("heading", heading.toDouble())
+        }
+
+        return socket.send(message.toString())
+    }
+
+    // --------------------------------------------------
     // DISCONNECT
     // --------------------------------------------------
 

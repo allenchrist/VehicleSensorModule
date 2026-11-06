@@ -58,7 +58,10 @@ class MainActivity : ComponentActivity() {
         private const val GPS_FIX_TIMEOUT_MS = 10_000L
 
         private const val LOGIN_REJECTED_MESSAGE =
-            "You've been logged out. This can happen if your account was used on another phone. Please log in again."
+            "You've been logged out. This can happen if your password was changed or your account was used on another phone. Please log in again."
+
+        // The server's reply when a login has ended
+        private const val HTTP_UNAUTHORIZED = 401
     }
 
     private lateinit var sessionManager: SessionManager
@@ -375,6 +378,12 @@ class MainActivity : ComponentActivity() {
                         "Bearer ${sessionManager.getToken()}"
                     )
 
+                // Retrying would never work, so the driver logs in again
+                if (response.code() == HTTP_UNAUTHORIZED) {
+                    TrackingState.markLoginRejected()
+                    return
+                }
+
                 response.body()?.let {
                     vehicleType = VehicleType.fromId(it.user.vehicleType)
                 }
@@ -409,7 +418,9 @@ class MainActivity : ComponentActivity() {
                         request = VehicleTypeRequest(newType.id)
                     )
 
-                if (!response.isSuccessful) {
+                if (response.code() == HTTP_UNAUTHORIZED) {
+                    TrackingState.markLoginRejected()
+                } else if (!response.isSuccessful) {
                     vehicleType = previousType
                     vehicleTypeError =
                         response.readableError("Couldn't save your vehicle type.")
