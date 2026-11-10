@@ -15,9 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -74,9 +74,7 @@ private val ControlHeight = 52.dp
 
 /** Full-screen background that stays clear of the status bar and keyboard. */
 @Composable
-fun ScreenBackground(
-    content: @Composable BoxScope.() -> Unit
-) {
+fun ScreenBackground(content: @Composable BoxScope.() -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -97,11 +95,7 @@ fun ScreenBackground(
 }
 
 @Composable
-fun BrandMark(
-    modifier: Modifier = Modifier,
-    size: Dp = 44.dp,
-    iconSize: Dp = 24.dp
-) {
+fun BrandMark(modifier: Modifier = Modifier, size: Dp = 44.dp, iconSize: Dp = 24.dp) {
     Box(
         modifier = modifier
             .size(size)
@@ -120,9 +114,7 @@ fun BrandMark(
 
 /** The product's mark and name, at the top of the login and signup screens. */
 @Composable
-fun BrandHeader(
-    modifier: Modifier = Modifier
-) {
+fun BrandHeader(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
@@ -138,10 +130,7 @@ fun BrandHeader(
 }
 
 @Composable
-fun AppCard(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
+fun AppCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = CardShape,
@@ -156,10 +145,7 @@ fun AppCard(
 }
 
 @Composable
-fun SectionLabel(
-    text: String,
-    modifier: Modifier = Modifier
-) {
+fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text.uppercase(),
         style = MaterialTheme.typography.labelMedium,
@@ -209,11 +195,14 @@ fun AppTextField(
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
                         painter = painterResource(
-                            if (passwordVisible) R.drawable.ic_visibility_off
-                            else R.drawable.ic_visibility
+                            if (passwordVisible) {
+                                R.drawable.ic_visibility_off
+                            } else {
+                                R.drawable.ic_visibility
+                            }
                         ),
                         contentDescription =
-                            if (passwordVisible) "Hide password" else "Show password",
+                        if (passwordVisible) "Hide password" else "Show password",
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -222,8 +211,11 @@ fun AppTextField(
             null
         },
         visualTransformation =
-            if (isPassword && !passwordVisible) PasswordVisualTransformation()
-            else VisualTransformation.None,
+        if (isPassword && !passwordVisible) {
+            PasswordVisualTransformation()
+        } else {
+            VisualTransformation.None
+        },
         keyboardOptions = KeyboardOptions(
             keyboardType = if (isPassword) KeyboardType.Password else keyboardType,
             imeAction = imeAction,
@@ -288,11 +280,7 @@ enum class MessageKind(val color: Color) {
 
 /** Inline message, used in place of a toast that would disappear. */
 @Composable
-fun MessageBanner(
-    text: String,
-    kind: MessageKind,
-    modifier: Modifier = Modifier
-) {
+fun MessageBanner(text: String, kind: MessageKind, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -411,10 +399,7 @@ fun FormGap() {
 }
 
 @Composable
-fun StatusDot(
-    color: Color,
-    modifier: Modifier = Modifier
-) {
+fun StatusDot(color: Color, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .size(8.dp)

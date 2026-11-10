@@ -9,12 +9,10 @@ const val CONNECTION_ERROR_MESSAGE =
 /**
  * The server's error message, without the JSON around it.
  */
-fun Response<*>.readableError(fallback: String): String {
-    return try {
-        JSONObject(errorBody()?.string().orEmpty())
-            .optString("message")
-            .ifBlank { fallback }
-    } catch (e: Exception) {
-        fallback
-    }
+fun Response<*>.readableError(fallback: String): String = try {
+    JSONObject(errorBody()?.string().orEmpty())
+        .optString("message")
+        .ifBlank { fallback }
+} catch (e: Exception) {
+    fallback
 }

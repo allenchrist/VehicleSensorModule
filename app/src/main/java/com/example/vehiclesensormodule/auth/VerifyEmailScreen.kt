@@ -3,7 +3,6 @@ package com.example.vehiclesensormodule.auth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -50,12 +49,7 @@ const val RESEND_WAIT_SECONDS = 60
  * onResend asks for another code, and returns an error message if it failed.
  */
 @Composable
-fun VerifyEmailScreen(
-    email: String,
-    onVerified: () -> Unit,
-    onResend: suspend () -> String?,
-    onBack: () -> Unit
-) {
+fun VerifyEmailScreen(email: String, onVerified: () -> Unit, onResend: suspend () -> String?, onBack: () -> Unit) {
     var code by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -78,13 +72,11 @@ fun VerifyEmailScreen(
         }
 
         scope.launch {
-
             isLoading = true
             errorMessage = null
             notice = null
 
             try {
-
                 val response =
                     ApiClient.authService.verifySignup(
                         VerifySignupRequest(email = email, code = code)
@@ -95,27 +87,21 @@ fun VerifyEmailScreen(
                 } else {
                     errorMessage = response.readableError("Couldn't check that code.")
                 }
-
             } catch (e: Exception) {
-
                 errorMessage = CONNECTION_ERROR_MESSAGE
-
             } finally {
-
                 isLoading = false
             }
         }
     }
 
     ScreenBackground {
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
-
             IconButton(onClick = onBack) {
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_back),
@@ -134,7 +120,9 @@ fun VerifyEmailScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "We sent a code to $email. It expires in 10 minutes. If you can't see it, check your spam folder.",
+                text =
+                "We sent a code to $email. It expires in 10 minutes. " +
+                    "If you can't see it, check your spam folder.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )
@@ -175,7 +163,6 @@ fun VerifyEmailScreen(
             TextButton(
                 onClick = {
                     scope.launch {
-
                         errorMessage = null
                         notice = null
 
@@ -194,8 +181,11 @@ fun VerifyEmailScreen(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text(
-                    if (resendWait > 0) "Send a new code in $resendWait s"
-                    else "Send a new code"
+                    if (resendWait > 0) {
+                        "Send a new code in $resendWait s"
+                    } else {
+                        "Send a new code"
+                    }
                 )
             }
         }

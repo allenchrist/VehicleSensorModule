@@ -1,4 +1,5 @@
-# Runs on every push: builds the app, then runs its unit tests and lint.
+# Runs on every push: checks the code style, builds the app, then runs its
+# unit tests and lint.
 name: Checks
 
 on:
@@ -20,5 +21,7 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
+      - name: Code style
+        run: sh ./gradlew :app:ktlintCheck
       - name: Build, unit tests and lint
         run: sh ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug

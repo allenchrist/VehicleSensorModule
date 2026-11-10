@@ -3,7 +3,11 @@ package com.example.vehiclesensormodule.sensors
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
-import com.google.android.gms.location.*
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 
 class GPSManager(private val context: Context) {
 
@@ -19,7 +23,6 @@ class GPSManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun startLocationUpdates(onLocationReceived: (Location) -> Unit) {
-
         stopLocationUpdates()
 
         val callback = object : LocationCallback() {
@@ -41,7 +44,6 @@ class GPSManager(private val context: Context) {
     }
 
     fun stopLocationUpdates() {
-
         locationCallback?.let {
             fusedLocationClient.removeLocationUpdates(it)
         }

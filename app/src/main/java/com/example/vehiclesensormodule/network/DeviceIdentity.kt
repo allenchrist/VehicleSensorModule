@@ -14,7 +14,6 @@ object DeviceIdentity {
     private const val DEVICE_ID_KEY = "device_id"
 
     fun get(context: Context): String {
-
         val preferences = context.getSharedPreferences(
             PREFS_NAME,
             Context.MODE_PRIVATE

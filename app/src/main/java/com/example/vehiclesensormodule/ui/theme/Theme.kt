@@ -25,9 +25,7 @@ private val AppColorScheme = darkColorScheme(
 
 // Always dark, to match the car screen and stay easy to read in a vehicle
 @Composable
-fun VehicleSensorModuleTheme(
-    content: @Composable () -> Unit
-) {
+fun VehicleSensorModuleTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = AppColorScheme,
         typography = Typography,

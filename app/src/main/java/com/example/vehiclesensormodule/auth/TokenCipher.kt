@@ -9,9 +9,7 @@ import javax.crypto.spec.GCMParameterSpec
  * Encrypts text with AES-GCM, which also detects tampering.
  * Takes the key as a parameter, so this can be tested off a phone.
  */
-class TokenCipher(
-    private val key: () -> SecretKey
-) {
+class TokenCipher(private val key: () -> SecretKey) {
 
     private companion object {
         const val TRANSFORMATION = "AES/GCM/NoPadding"
@@ -19,7 +17,6 @@ class TokenCipher(
     }
 
     fun encrypt(text: String): String {
-
         val cipher = Cipher.getInstance(TRANSFORMATION)
 
         cipher.init(Cipher.ENCRYPT_MODE, key())
@@ -41,36 +38,30 @@ class TokenCipher(
      * Returns null if the text can't be decrypted, for
      * example if the key was lost or the data was changed.
      */
-    fun decrypt(encoded: String): String? {
+    fun decrypt(encoded: String): String? = try {
+        val packed = ByteBuffer.wrap(
+            encoded
+                .chunked(2)
+                .map { it.toInt(16).toByte() }
+                .toByteArray()
+        )
 
-        return try {
+        val iv = ByteArray(packed.get().toInt())
+        packed.get(iv)
 
-            val packed = ByteBuffer.wrap(
-                encoded
-                    .chunked(2)
-                    .map { it.toInt(16).toByte() }
-                    .toByteArray()
-            )
+        val encrypted = ByteArray(packed.remaining())
+        packed.get(encrypted)
 
-            val iv = ByteArray(packed.get().toInt())
-            packed.get(iv)
+        val cipher = Cipher.getInstance(TRANSFORMATION)
 
-            val encrypted = ByteArray(packed.remaining())
-            packed.get(encrypted)
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            key(),
+            GCMParameterSpec(TAG_BITS, iv)
+        )
 
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                key(),
-                GCMParameterSpec(TAG_BITS, iv)
-            )
-
-            String(cipher.doFinal(encrypted))
-
-        } catch (e: Exception) {
-
-            null
-        }
+        String(cipher.doFinal(encrypted))
+    } catch (e: Exception) {
+        null
     }
 }

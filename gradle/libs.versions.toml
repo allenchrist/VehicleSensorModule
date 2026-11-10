@@ -10,6 +10,7 @@ playServicesLocation = "21.3.0"
 fragmentKtx = "1.8.9"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
+ktlint = "14.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,4 +33,5 @@ okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-i
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 

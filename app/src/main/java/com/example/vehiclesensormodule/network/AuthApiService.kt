@@ -12,99 +12,55 @@ import retrofit2.http.PUT
 // LOGIN
 // --------------------------------------------------
 
-data class LoginRequest(
-    val username: String,
-    val password: String
-)
+data class LoginRequest(val username: String, val password: String)
 
-data class LoginResponse(
-    val message: String,
-    val token: String,
-    val user: User
-)
+data class LoginResponse(val message: String, val token: String, val user: User)
 
 // --------------------------------------------------
 // SIGNUP / REGISTER
 // --------------------------------------------------
 
-data class RegisterRequest(
-    val username: String,
-    val email: String,
-    val password: String,
-    val vehicleType: String
-)
+data class RegisterRequest(val username: String, val email: String, val password: String, val vehicleType: String)
 
-data class VerifySignupRequest(
-    val email: String,
-    val code: String
-)
+data class VerifySignupRequest(val email: String, val code: String)
 
-data class RegisterResponse(
-    val message: String,
-    val user: User
-)
+data class RegisterResponse(val message: String, val user: User)
 
 // --------------------------------------------------
 // FORGOTTEN PASSWORD AND DELETING AN ACCOUNT
 // --------------------------------------------------
 
-data class ForgotPasswordRequest(
-    val email: String
-)
+data class ForgotPasswordRequest(val email: String)
 
-data class ResetPasswordRequest(
-    val email: String,
-    val code: String,
-    val newPassword: String
-)
+data class ResetPasswordRequest(val email: String, val code: String, val newPassword: String)
 
-data class DeleteAccountRequest(
-    val password: String
-)
+data class DeleteAccountRequest(val password: String)
 
-data class MessageResponse(
-    val message: String
-)
+data class MessageResponse(val message: String)
 
 // --------------------------------------------------
 // DEVICE ASSOCIATION
 // --------------------------------------------------
 
-data class DeviceAssociationRequest(
-    val deviceId: String
-)
+data class DeviceAssociationRequest(val deviceId: String)
 
-data class DeviceAssociationResponse(
-    val message: String,
-    val user: User,
-    val deviceId: String
-)
+data class DeviceAssociationResponse(val message: String, val user: User, val deviceId: String)
 
 // --------------------------------------------------
 // USER
 // --------------------------------------------------
 
-data class User(
-    val username: String,
-    val email: String,
-    val vehicleType: String?
-)
+data class User(val username: String, val email: String, val vehicleType: String?)
 
-data class ProfileResponse(
-    val user: User
-)
+data class ProfileResponse(val user: User)
 
 // --------------------------------------------------
 // VEHICLE TYPE
 // --------------------------------------------------
 
-data class VehicleTypeRequest(
-    val vehicleType: String
-)
+data class VehicleTypeRequest(val vehicleType: String)
 
-data class VehicleTypeResponse(
-    val vehicleType: String
-)
+data class VehicleTypeResponse(val vehicleType: String)
 
 // --------------------------------------------------
 // AUTH API
@@ -113,29 +69,19 @@ data class VehicleTypeResponse(
 interface AuthApiService {
 
     @POST("api/auth/login")
-    suspend fun login(
-        @Body request: LoginRequest
-    ): Response<LoginResponse>
+    suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
     @POST("api/auth/register/start")
-    suspend fun startSignup(
-        @Body request: RegisterRequest
-    ): Response<MessageResponse>
+    suspend fun startSignup(@Body request: RegisterRequest): Response<MessageResponse>
 
     @POST("api/auth/register/verify")
-    suspend fun verifySignup(
-        @Body request: VerifySignupRequest
-    ): Response<RegisterResponse>
+    suspend fun verifySignup(@Body request: VerifySignupRequest): Response<RegisterResponse>
 
     @POST("api/auth/password/forgot")
-    suspend fun forgotPassword(
-        @Body request: ForgotPasswordRequest
-    ): Response<MessageResponse>
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 
     @POST("api/auth/password/reset")
-    suspend fun resetPassword(
-        @Body request: ResetPasswordRequest
-    ): Response<MessageResponse>
+    suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
 
     @HTTP(method = "DELETE", path = "api/auth/account", hasBody = true)
     suspend fun deleteAccount(
@@ -144,9 +90,7 @@ interface AuthApiService {
     ): Response<MessageResponse>
 
     @GET("api/auth/profile")
-    suspend fun getProfile(
-        @Header("Authorization") authorization: String
-    ): Response<ProfileResponse>
+    suspend fun getProfile(@Header("Authorization") authorization: String): Response<ProfileResponse>
 
     @PUT("api/auth/vehicle-type")
     suspend fun updateVehicleType(

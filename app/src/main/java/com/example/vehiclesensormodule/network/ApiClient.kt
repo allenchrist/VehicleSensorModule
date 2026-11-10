@@ -1,18 +1,21 @@
 package com.example.vehiclesensormodule.network
 
 import com.example.vehiclesensormodule.BuildConfig
+import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
     private val logging = HttpLoggingInterceptor().apply {
         level =
-            if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
-            else HttpLoggingInterceptor.Level.NONE
+            if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.HEADERS
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         redactHeader("Authorization")
     }
 

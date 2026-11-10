@@ -55,27 +55,20 @@ private val USERNAME_PATTERN = Regex("^[A-Za-z0-9_.-]+$")
 private const val USERNAME_MAX_LENGTH = 50
 
 // Returns an error message to show, or null if the code was sent
-private suspend fun sendCode(request: RegisterRequest): String? {
+private suspend fun sendCode(request: RegisterRequest): String? = try {
+    val response = ApiClient.authService.startSignup(request)
 
-    return try {
-
-        val response = ApiClient.authService.startSignup(request)
-
-        if (response.isSuccessful) null
-        else response.readableError("Couldn't create your account.")
-
-    } catch (e: Exception) {
-
-        CONNECTION_ERROR_MESSAGE
+    if (response.isSuccessful) {
+        null
+    } else {
+        response.readableError("Couldn't create your account.")
     }
+} catch (e: Exception) {
+    CONNECTION_ERROR_MESSAGE
 }
 
 @Composable
-fun SignupScreen(
-    onSignupSuccess: (username: String) -> Unit,
-    onBackToLogin: () -> Unit
-) {
-
+fun SignupScreen(onSignupSuccess: (username: String) -> Unit, onBackToLogin: () -> Unit) {
     var username by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -104,16 +97,25 @@ fun SignupScreen(
     }
 
     val emailError =
-        if (android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) null
-        else "Enter a valid email address"
+        if (android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+            null
+        } else {
+            "Enter a valid email address"
+        }
 
     val passwordError =
-        if (password.length >= MIN_PASSWORD_LENGTH) null
-        else "Use at least $MIN_PASSWORD_LENGTH characters"
+        if (password.length >= MIN_PASSWORD_LENGTH) {
+            null
+        } else {
+            "Use at least $MIN_PASSWORD_LENGTH characters"
+        }
 
     val confirmError =
-        if (confirmPassword == password) null
-        else "Passwords don't match"
+        if (confirmPassword == password) {
+            null
+        } else {
+            "Passwords don't match"
+        }
 
     fun submit() {
         showErrors = true
@@ -128,7 +130,6 @@ fun SignupScreen(
         }
 
         scope.launch {
-
             isLoading = true
             errorMessage = null
 
@@ -154,7 +155,6 @@ fun SignupScreen(
     val sentTo = codeSentTo
 
     if (sentTo != null) {
-
         VerifyEmailScreen(
             email = sentTo,
             onVerified = { onSignupSuccess(trimmedUsername) },
@@ -175,14 +175,12 @@ fun SignupScreen(
     }
 
     ScreenBackground {
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
-
             IconButton(onClick = onBackToLogin) {
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_back),

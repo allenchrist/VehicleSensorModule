@@ -35,7 +35,6 @@ class SessionManager(context: Context) {
 
     // The key stays inside Android's secure storage and can't be copied out
     private fun getOrCreateKey(): SecretKey {
-
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
 
         keyStore.load(null)
@@ -61,15 +60,11 @@ class SessionManager(context: Context) {
     }
 
     private fun storeToken(editor: SharedPreferences.Editor, token: String) {
-
         try {
-
             editor
                 .putString(ENCRYPTED_TOKEN, cipher.encrypt(token))
                 .remove(PLAIN_TOKEN)
-
         } catch (e: Exception) {
-
             // Secure storage is faulty on a few phones. Staying logged
             // in matters more here than encrypting this one value.
             Log.w(TAG, "Couldn't encrypt the login token", e)
@@ -79,7 +74,6 @@ class SessionManager(context: Context) {
     }
 
     fun saveSession(token: String, username: String) {
-
         preferences.edit {
             storeToken(this, token)
             putString(USERNAME, username)
@@ -87,7 +81,6 @@ class SessionManager(context: Context) {
     }
 
     fun getToken(): String? {
-
         preferences.getString(ENCRYPTED_TOKEN, null)?.let {
             return cipher.decrypt(it)
         }
@@ -103,13 +96,9 @@ class SessionManager(context: Context) {
         return plainToken
     }
 
-    fun getUsername(): String? {
-        return preferences.getString(USERNAME, null)
-    }
+    fun getUsername(): String? = preferences.getString(USERNAME, null)
 
-    fun isLoggedIn(): Boolean {
-        return !getToken().isNullOrEmpty()
-    }
+    fun isLoggedIn(): Boolean = !getToken().isNullOrEmpty()
 
     fun clearSession() {
         preferences.edit {

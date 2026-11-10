@@ -49,27 +49,21 @@ import kotlinx.coroutines.launch
 private const val MIN_PASSWORD_LENGTH = 8
 
 // Returns an error message to show, or null if the request went through
-private suspend fun requestCode(email: String): String? {
+private suspend fun requestCode(email: String): String? = try {
+    val response =
+        ApiClient.authService.forgotPassword(ForgotPasswordRequest(email))
 
-    return try {
-
-        val response =
-            ApiClient.authService.forgotPassword(ForgotPasswordRequest(email))
-
-        if (response.isSuccessful) null
-        else response.readableError("Couldn't send a code.")
-
-    } catch (e: Exception) {
-
-        CONNECTION_ERROR_MESSAGE
+    if (response.isSuccessful) {
+        null
+    } else {
+        response.readableError("Couldn't send a code.")
     }
+} catch (e: Exception) {
+    CONNECTION_ERROR_MESSAGE
 }
 
 @Composable
-fun ForgotPasswordScreen(
-    onPasswordChanged: () -> Unit,
-    onBackToLogin: () -> Unit
-) {
+fun ForgotPasswordScreen(onPasswordChanged: () -> Unit, onBackToLogin: () -> Unit) {
     var email by rememberSaveable { mutableStateOf("") }
     var codeRequested by rememberSaveable { mutableStateOf(false) }
 
@@ -100,7 +94,6 @@ fun ForgotPasswordScreen(
         }
 
         scope.launch {
-
             isLoading = true
             errorMessage = null
             notice = null
@@ -124,7 +117,8 @@ fun ForgotPasswordScreen(
     fun changePassword() {
         errorMessage = when {
             code.length != CODE_LENGTH -> "Enter the $CODE_LENGTH-digit code from the email."
-            newPassword.length < MIN_PASSWORD_LENGTH -> "Use at least $MIN_PASSWORD_LENGTH characters for your password."
+            newPassword.length < MIN_PASSWORD_LENGTH ->
+                "Use at least $MIN_PASSWORD_LENGTH characters for your password."
             newPassword != confirmPassword -> "Passwords don't match."
             else -> null
         }
@@ -134,12 +128,10 @@ fun ForgotPasswordScreen(
         }
 
         scope.launch {
-
             isLoading = true
             notice = null
 
             try {
-
                 val response =
                     ApiClient.authService.resetPassword(
                         ResetPasswordRequest(
@@ -154,27 +146,21 @@ fun ForgotPasswordScreen(
                 } else {
                     errorMessage = response.readableError("Couldn't change your password.")
                 }
-
             } catch (e: Exception) {
-
                 errorMessage = CONNECTION_ERROR_MESSAGE
-
             } finally {
-
                 isLoading = false
             }
         }
     }
 
     ScreenBackground {
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
-
             IconButton(
                 onClick = {
                     if (codeRequested) codeRequested = false else onBackToLogin()
@@ -198,8 +184,11 @@ fun ForgotPasswordScreen(
 
             Text(
                 text =
-                    if (codeRequested) "If $trimmedEmail has an account, we've sent it a code. It expires in 10 minutes. If you can't see it, check your spam folder."
-                    else "Enter your account's email, and we'll send you a code to change your password.",
+                if (codeRequested) {
+                    "If $trimmedEmail has an account, we've sent it a code. It expires in 10 minutes. If you can't see it, check your spam folder."
+                } else {
+                    "Enter your account's email, and we'll send you a code to change your password."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )
@@ -217,7 +206,6 @@ fun ForgotPasswordScreen(
             }
 
             if (!codeRequested) {
-
                 AppTextField(
                     value = email,
                     onValueChange = {
@@ -239,9 +227,7 @@ fun ForgotPasswordScreen(
                     onClick = ::sendCode,
                     loading = isLoading
                 )
-
             } else {
-
                 CodeField(
                     value = code,
                     onValueChange = {
@@ -297,8 +283,11 @@ fun ForgotPasswordScreen(
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text(
-                        if (resendWait > 0) "Send a new code in $resendWait s"
-                        else "Send a new code"
+                        if (resendWait > 0) {
+                            "Send a new code in $resendWait s"
+                        } else {
+                            "Send a new code"
+                        }
                     )
                 }
             }

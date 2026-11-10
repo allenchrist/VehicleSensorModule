@@ -13,17 +13,23 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.lifecycleScope
-
 import com.example.vehiclesensormodule.auth.ForgotPasswordScreen
 import com.example.vehiclesensormodule.auth.LoginScreen
 import com.example.vehiclesensormodule.auth.SessionManager
@@ -41,10 +47,8 @@ import com.example.vehiclesensormodule.screen.MainScreen
 import com.example.vehiclesensormodule.service.TrackingState
 import com.example.vehiclesensormodule.service.VehicleTrackingService
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
-
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
 
 class MainActivity : ComponentActivity() {
 
@@ -84,7 +88,6 @@ class MainActivity : ComponentActivity() {
                 grants[Manifest.permission.ACCESS_FINE_LOCATION] == true
         }
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -97,13 +100,11 @@ class MainActivity : ComponentActivity() {
 
         locationPermissionGranted = hasLocationPermission()
 
-
         // --------------------------------------------------
         // Compose UI
         // --------------------------------------------------
 
         setContent {
-
             var isLoggedIn by remember {
                 mutableStateOf(sessionManager.isLoggedIn())
             }
@@ -129,7 +130,6 @@ class MainActivity : ComponentActivity() {
             val loginRejected by TrackingState.loginRejected.collectAsState()
 
             val logOut = {
-
                 Log.d(
                     TAG,
                     "Logging out user: ${sessionManager.getUsername()}"
@@ -157,21 +157,16 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(loginRejected) {
-
                 if (loginRejected) {
                     logOut()
                 }
             }
 
-
             VehicleSensorModuleTheme {
-
                 when {
-
                     isLoggedIn -> VehicleScreen(
 
                         onLogout = {
-
                             // Runs on after this screen closes
                             unlinkThisPhone(sessionManager.getToken())
 
@@ -208,7 +203,6 @@ class MainActivity : ComponentActivity() {
                     )
 
                     else -> key(newUsername, passwordChanged) {
-
                         LoginScreen(
 
                             onLoginSuccess = { token, username ->
@@ -235,7 +229,7 @@ class MainActivity : ComponentActivity() {
                             initialUsername = newUsername.orEmpty(),
 
                             initialError =
-                                if (loginRejected) LOGIN_REJECTED_MESSAGE else null,
+                            if (loginRejected) LOGIN_REJECTED_MESSAGE else null,
 
                             successMessage = when {
                                 passwordChanged -> "Password changed. Log in with your new password."
@@ -249,7 +243,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     override fun onResume() {
         super.onResume()
 
@@ -257,30 +250,24 @@ class MainActivity : ComponentActivity() {
         locationPermissionGranted = hasLocationPermission()
     }
 
-
     /**
      * Frees this phone for the next person to log in. If it fails, nothing
      * is lost: logging in on any phone moves the account to that phone.
      */
     private fun unlinkThisPhone(token: String?) {
-
         if (token == null) {
             return
         }
 
         lifecycleScope.launch {
-
             try {
-
                 ApiClient.authService.unlinkDevice(
                     authorization = "Bearer $token",
                     request = DeviceAssociationRequest(
                         deviceId = DeviceIdentity.get(this@MainActivity)
                     )
                 )
-
             } catch (e: Exception) {
-
                 Log.w(
                     TAG,
                     "Couldn't unlink this phone on logout",
@@ -290,17 +277,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
-    private fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
+    private fun hasLocationPermission(): Boolean = ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
 
     private fun requestLocationPermission() {
-
         // Android 12+ ignores a request for fine location
         // unless coarse location is requested with it.
         locationPermissionRequest.launch(
@@ -316,7 +298,6 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-
     private fun openAppSettings() {
         startActivity(
             Intent(
@@ -326,10 +307,8 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-
     @SuppressLint("BatteryLife")
     private fun requestNoBatteryLimits() {
-
         openSettingsScreen(
             Intent(
                 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
@@ -338,26 +317,20 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-
     private fun openLocationSettings() {
-
         openSettingsScreen(
             Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
         )
     }
 
-
     private fun openBatterySaverSettings() {
-
         openSettingsScreen(
             Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
         )
     }
 
-
     // Not every phone has every settings screen
     private fun openSettingsScreen(intent: Intent) {
-
         try {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
@@ -366,13 +339,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     private suspend fun loadVehicleType() {
-
         while (vehicleType == null) {
-
             try {
-
                 val response =
                     ApiClient.authService.getProfile(
                         "Bearer ${sessionManager.getToken()}"
@@ -387,9 +356,7 @@ class MainActivity : ComponentActivity() {
                 response.body()?.let {
                     vehicleType = VehicleType.fromId(it.user.vehicleType)
                 }
-
             } catch (e: Exception) {
-
                 Log.w(TAG, "Couldn't load the vehicle type", e)
             }
 
@@ -399,9 +366,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     private fun changeVehicleType(newType: VehicleType) {
-
         val previousType = vehicleType
 
         // Shown straight away, and put back if the server refuses
@@ -409,9 +374,7 @@ class MainActivity : ComponentActivity() {
         vehicleTypeError = null
 
         lifecycleScope.launch {
-
             try {
-
                 val response =
                     ApiClient.authService.updateVehicleType(
                         authorization = "Bearer ${sessionManager.getToken()}",
@@ -425,39 +388,31 @@ class MainActivity : ComponentActivity() {
                     vehicleTypeError =
                         response.readableError("Couldn't save your vehicle type.")
                 }
-
             } catch (e: Exception) {
-
                 vehicleType = previousType
                 vehicleTypeError = CONNECTION_ERROR_MESSAGE
             }
         }
     }
 
-
     // Returns an error message to show, or null once the account is gone
-    private suspend fun deleteAccount(password: String): String? {
+    private suspend fun deleteAccount(password: String): String? = try {
+        val response =
+            ApiClient.authService.deleteAccount(
+                authorization = "Bearer ${sessionManager.getToken()}",
+                request = DeleteAccountRequest(password)
+            )
 
-        return try {
-
-            val response =
-                ApiClient.authService.deleteAccount(
-                    authorization = "Bearer ${sessionManager.getToken()}",
-                    request = DeleteAccountRequest(password)
-                )
-
-            if (response.isSuccessful) null
-            else response.readableError("Couldn't delete your account.")
-
-        } catch (e: Exception) {
-
-            CONNECTION_ERROR_MESSAGE
+        if (response.isSuccessful) {
+            null
+        } else {
+            response.readableError("Couldn't delete your account.")
         }
+    } catch (e: Exception) {
+        CONNECTION_ERROR_MESSAGE
     }
 
-
     private fun connect() {
-
         if (locationPermissionGranted) {
             startSharing()
         } else {
@@ -466,85 +421,66 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     private fun disconnect() {
-
         connectAfterPermission = false
 
         VehicleTrackingService.stop(this)
     }
 
-
     private fun startSharing() {
-
         try {
             VehicleTrackingService.start(this)
         } catch (e: IllegalStateException) {
-
             // Android only allows this while the app is visible.
             // The screen keeps offering the Start sharing button.
             Log.e(TAG, "Couldn't start sharing", e)
         }
     }
 
-
     /**
      * Links this phone to the account. The session is only saved if that
      * succeeds. Returns an error message to show, or null on success.
      */
-    private suspend fun linkDeviceAndSaveSession(
-        token: String,
-        username: String
-    ): String? {
-
-        return try {
-
-            val response =
-                ApiClient.authService.associateDevice(
-                    authorization = "Bearer $token",
-                    request = DeviceAssociationRequest(
-                        deviceId = DeviceIdentity.get(this)
-                    )
+    private suspend fun linkDeviceAndSaveSession(token: String, username: String): String? = try {
+        val response =
+            ApiClient.authService.associateDevice(
+                authorization = "Bearer $token",
+                request = DeviceAssociationRequest(
+                    deviceId = DeviceIdentity.get(this)
                 )
-
-            if (response.isSuccessful && response.body() != null) {
-
-                sessionManager.saveSession(
-                    token = token,
-                    username = username
-                )
-
-                Log.d(
-                    TAG,
-                    "Login successful for user: $username"
-                )
-
-                null
-
-            } else {
-
-                Log.e(
-                    TAG,
-                    "Device association failed: HTTP ${response.code()}"
-                )
-
-                response.readableError(
-                    "Couldn't link this phone to your account."
-                )
-            }
-
-        } catch (e: Exception) {
-
-            Log.e(
-                TAG,
-                "Device association error",
-                e
             )
 
-            CONNECTION_ERROR_MESSAGE
-        }
-    }
+        if (response.isSuccessful && response.body() != null) {
+            sessionManager.saveSession(
+                token = token,
+                username = username
+            )
 
+            Log.d(
+                TAG,
+                "Login successful for user: $username"
+            )
+
+            null
+        } else {
+            Log.e(
+                TAG,
+                "Device association failed: HTTP ${response.code()}"
+            )
+
+            response.readableError(
+                "Couldn't link this phone to your account."
+            )
+        }
+    } catch (e: Exception) {
+        Log.e(
+            TAG,
+            "Device association error",
+            e
+        )
+
+        CONNECTION_ERROR_MESSAGE
+    }
 
     // ==========================================================
     // VEHICLE SCREEN
@@ -553,11 +489,7 @@ class MainActivity : ComponentActivity() {
     // ==========================================================
 
     @Composable
-    private fun VehicleScreen(
-        onLogout: () -> Unit,
-        onAccountDeleted: () -> Unit
-    ) {
-
+    private fun VehicleScreen(onLogout: () -> Unit, onAccountDeleted: () -> Unit) {
         val tracking by TrackingState.state.collectAsState()
 
         var now by remember {
@@ -587,9 +519,7 @@ class MainActivity : ComponentActivity() {
         // Notices when GPS updates have stopped arriving, and
         // when the settings that can stop or delay them change
         LaunchedEffect(Unit) {
-
             while (true) {
-
                 batteryLimited =
                     !powerManager.isIgnoringBatteryOptimizations(packageName)
 
@@ -604,22 +534,17 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-
         LaunchedEffect(Unit) {
             loadVehicleType()
         }
 
-
         LaunchedEffect(locationPermissionGranted, connectAfterPermission) {
-
             if (locationPermissionGranted && connectAfterPermission) {
-
                 connectAfterPermission = false
 
                 startSharing()
             }
         }
-
 
         val fixTime = tracking.lastFixAt
 
@@ -648,7 +573,7 @@ class MainActivity : ComponentActivity() {
                 batterySaverOn = batterySaverOn,
 
                 hasRecentFix =
-                    fixTime != null && now - fixTime < GPS_FIX_TIMEOUT_MS,
+                fixTime != null && now - fixTime < GPS_FIX_TIMEOUT_MS,
 
                 latitude = tracking.latitude,
                 longitude = tracking.longitude,

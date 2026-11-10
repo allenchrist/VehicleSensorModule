@@ -99,8 +99,10 @@ The app only allows encrypted connections, so plain `http://` and `ws://` addres
 ## Run the checks
 
 ```
-gradlew.bat :app:testDebugUnitTest :app:lintDebug
+gradlew.bat :app:ktlintCheck :app:testDebugUnitTest :app:lintDebug
 ```
+
+`ktlintCheck` checks the code style, set in `.editorconfig`, and `gradlew.bat :app:ktlintFormat` fixes most of it. The unit tests cover login encryption, the compass heading and its direction names, and the wait between reconnect attempts.
 
 GitHub also builds the app and runs these on every push. Results are in the repository's **Actions** tab. Android's secure storage and background behaviour can only be tested on a real phone.
 

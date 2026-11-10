@@ -4,20 +4,28 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
+
+/**
+ * How long to wait before reconnect attempt number [attempt], counting from
+ * 0: 1s, 2s, 4s, doubling up to [maxMs].
+ */
+internal fun reconnectDelayMs(attempt: Int, maxMs: Long): Long = minOf(1000L shl attempt.coerceIn(0, 5), maxMs)
 
 class VehicleWebSocketClient(context: Context) {
 
     companion object {
         private const val TAG = "VehicleWebSocket"
 
-        private const val MAX_RECONNECT_DELAY_MS = 30_000L
+        // The server restarts on every deploy and is back within a minute,
+        // so a short longest wait means sharing resumes soon after
+        private const val MAX_RECONNECT_DELAY_MS = 10_000L
 
         // Sent by the backend. Reconnecting would not help with these.
         private const val CLOSE_INVALID_DEVICE = 4001
@@ -77,7 +85,6 @@ class VehicleWebSocketClient(context: Context) {
     // --------------------------------------------------
 
     fun connect() {
-
         shouldStayConnected = true
 
         reconnectHandler.removeCallbacks(
@@ -128,11 +135,7 @@ class VehicleWebSocketClient(context: Context) {
             request,
             object : WebSocketListener() {
 
-                override fun onOpen(
-                    webSocket: WebSocket,
-                    response: Response
-                ) {
-
+                override fun onOpen(webSocket: WebSocket, response: Response) {
                     Log.i(
                         TAG,
                         "WebSocket CONNECTED — socket=$webSocket"
@@ -153,26 +156,17 @@ class VehicleWebSocketClient(context: Context) {
                     registerDevice(webSocket)
                 }
 
-                override fun onMessage(
-                    webSocket: WebSocket,
-                    text: String
-                ) {
-
+                override fun onMessage(webSocket: WebSocket, text: String) {
                     handleServerMessage(text)
                 }
 
-                override fun onClosing(
-                    webSocket: WebSocket,
-                    code: Int,
-                    reason: String
-                ) {
-
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                     Log.d(
                         TAG,
                         "WebSocket CLOSING — " +
-                                "socket=$webSocket " +
-                                "code=$code " +
-                                "reason=$reason"
+                            "socket=$webSocket " +
+                            "code=$code " +
+                            "reason=$reason"
                     )
 
                     // onClosed only fires once this side
@@ -183,18 +177,13 @@ class VehicleWebSocketClient(context: Context) {
                     )
                 }
 
-                override fun onClosed(
-                    webSocket: WebSocket,
-                    code: Int,
-                    reason: String
-                ) {
-
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     Log.i(
                         TAG,
                         "WebSocket CLOSED — " +
-                                "socket=$webSocket " +
-                                "code=$code " +
-                                "reason=$reason"
+                            "socket=$webSocket " +
+                            "code=$code " +
+                            "reason=$reason"
                     )
 
                     // Only clear state if this is still
@@ -203,7 +192,6 @@ class VehicleWebSocketClient(context: Context) {
                         this@VehicleWebSocketClient.webSocket ===
                         webSocket
                     ) {
-
                         this@VehicleWebSocketClient.webSocket =
                             null
 
@@ -217,39 +205,30 @@ class VehicleWebSocketClient(context: Context) {
                         )
 
                         if (code == CLOSE_NOT_AUTHORIZED) {
-
                             reconnectHandler.post {
                                 onAuthorizationRejected?.invoke()
                             }
-
                         } else if (
                             code != CLOSE_INVALID_DEVICE &&
                             code != CLOSE_REPLACED
                         ) {
                             scheduleReconnect()
                         }
-
                     } else {
-
                         Log.d(
                             TAG,
                             "Old WebSocket closed — " +
-                                    "current connection preserved"
+                                "current connection preserved"
                         )
                     }
                 }
 
-                override fun onFailure(
-                    webSocket: WebSocket,
-                    t: Throwable,
-                    response: Response?
-                ) {
-
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     Log.e(
                         TAG,
                         "WebSocket FAILURE — " +
-                                "socket=$webSocket " +
-                                "message=${t.message}",
+                            "socket=$webSocket " +
+                            "message=${t.message}",
                         t
                     )
 
@@ -264,7 +243,6 @@ class VehicleWebSocketClient(context: Context) {
                         this@VehicleWebSocketClient.webSocket ===
                         webSocket
                     ) {
-
                         this@VehicleWebSocketClient.webSocket =
                             null
 
@@ -278,13 +256,11 @@ class VehicleWebSocketClient(context: Context) {
                         )
 
                         scheduleReconnect()
-
                     } else {
-
                         Log.d(
                             TAG,
                             "Old WebSocket failed — " +
-                                    "current connection preserved"
+                                "current connection preserved"
                         )
                     }
                 }
@@ -305,28 +281,23 @@ class VehicleWebSocketClient(context: Context) {
     // --------------------------------------------------
     // RECONNECT
     //
-    // Waits 1s, 2s, 4s ... up to 30s between attempts.
+    // Waits 1s, 2s, 4s ... up to 10s between attempts.
     // --------------------------------------------------
 
     private fun scheduleReconnect() {
-
         reconnectHandler.post {
-
             if (!shouldStayConnected) {
                 return@post
             }
 
-            val delayMs = minOf(
-                1000L shl minOf(reconnectAttempt, 5),
-                MAX_RECONNECT_DELAY_MS
-            )
+            val delayMs = reconnectDelayMs(reconnectAttempt, MAX_RECONNECT_DELAY_MS)
 
             reconnectAttempt++
 
             Log.i(
                 TAG,
                 "Reconnecting in ${delayMs}ms " +
-                        "(attempt $reconnectAttempt)"
+                    "(attempt $reconnectAttempt)"
             )
 
             reconnectHandler.removeCallbacks(
@@ -349,9 +320,7 @@ class VehicleWebSocketClient(context: Context) {
     // --------------------------------------------------
 
     fun onNetworkAvailable(networkChanged: Boolean) {
-
         reconnectHandler.post {
-
             if (!shouldStayConnected) {
                 return@post
             }
@@ -361,11 +330,8 @@ class VehicleWebSocketClient(context: Context) {
             val socket = webSocket
 
             if (socket == null) {
-
                 connect()
-
             } else if (networkChanged) {
-
                 // Fails the socket, which schedules a quick reconnect
                 socket.cancel()
             }
@@ -376,12 +342,8 @@ class VehicleWebSocketClient(context: Context) {
     // REGISTER DEVICE
     // --------------------------------------------------
 
-    private fun registerDevice(
-        webSocket: WebSocket
-    ) {
-
+    private fun registerDevice(webSocket: WebSocket) {
         val registration = JSONObject().apply {
-
             put(
                 "type",
                 "register"
@@ -398,7 +360,6 @@ class VehicleWebSocketClient(context: Context) {
         )
 
         if (!success) {
-
             Log.w(
                 TAG,
                 "Failed to send registration"
@@ -410,22 +371,16 @@ class VehicleWebSocketClient(context: Context) {
     // HANDLE SERVER MESSAGE
     // --------------------------------------------------
 
-    private fun handleServerMessage(
-        text: String
-    ) {
-
+    private fun handleServerMessage(text: String) {
         try {
-
             val json = JSONObject(text)
 
             when (json.optString("type")) {
-
                 // --------------------------------------
                 // Vehicle registration
                 // --------------------------------------
 
                 "registered" -> {
-
                     val assignedVehicleId =
                         json.optString("vehicleId")
 
@@ -445,16 +400,13 @@ class VehicleWebSocketClient(context: Context) {
                 }
 
                 else -> {
-
                     Log.d(
                         TAG,
                         "Unknown server message: $text"
                     )
                 }
             }
-
         } catch (e: Exception) {
-
             Log.e(
                 TAG,
                 "Failed to parse server message",
@@ -481,7 +433,6 @@ class VehicleWebSocketClient(context: Context) {
         bearing: Float?,
         accuracy: Float?
     ) {
-
         val socket =
             webSocket
 
@@ -493,12 +444,11 @@ class VehicleWebSocketClient(context: Context) {
             !isConnected ||
             socket == null
         ) {
-
             Log.d(
                 TAG,
                 "TELEMETRY NOT SENT — " +
-                        "connected=$isConnected " +
-                        "socket=${socket != null}"
+                    "connected=$isConnected " +
+                    "socket=${socket != null}"
             )
 
             return
@@ -510,7 +460,6 @@ class VehicleWebSocketClient(context: Context) {
 
         val telemetry =
             JSONObject().apply {
-
                 put(
                     "lat",
                     latitude
@@ -579,7 +528,6 @@ class VehicleWebSocketClient(context: Context) {
             )
 
         if (!success) {
-
             Log.w(
                 TAG,
                 "Failed to send telemetry"
@@ -595,7 +543,6 @@ class VehicleWebSocketClient(context: Context) {
     // --------------------------------------------------
 
     fun sendHeading(heading: Float): Boolean {
-
         val socket = webSocket
 
         if (!isConnected || socket == null) {
@@ -615,7 +562,6 @@ class VehicleWebSocketClient(context: Context) {
     // --------------------------------------------------
 
     fun disconnect() {
-
         Log.d(
             TAG,
             "Disconnecting WebSocket — socket=$webSocket"

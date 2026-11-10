@@ -22,8 +22,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
 import com.example.vehiclesensormodule.network.ApiClient
@@ -53,7 +53,6 @@ fun LoginScreen(
     initialError: String? = null,
     successMessage: String? = null
 ) {
-
     var username by rememberSaveable { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf(initialError) }
@@ -68,12 +67,10 @@ fun LoginScreen(
         }
 
         scope.launch {
-
             isLoading = true
             errorMessage = null
 
             try {
-
                 val response =
                     ApiClient.authService.login(
                         LoginRequest(
@@ -90,20 +87,15 @@ fun LoginScreen(
                     } else {
                         response.readableError("Invalid username or password.")
                     }
-
             } catch (e: Exception) {
-
                 errorMessage = CONNECTION_ERROR_MESSAGE
-
             } finally {
-
                 isLoading = false
             }
         }
     }
 
     ScreenBackground {
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -111,7 +103,6 @@ fun LoginScreen(
                 .padding(horizontal = 24.dp, vertical = 32.dp),
             verticalArrangement = Arrangement.Center
         ) {
-
             BrandHeader()
 
             Spacer(modifier = Modifier.height(32.dp))

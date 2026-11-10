@@ -53,22 +53,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
 import com.example.vehiclesensormodule.model.VehicleType
+import com.example.vehiclesensormodule.sensors.compassPoint
 import com.example.vehiclesensormodule.service.SensorReadings
 import com.example.vehiclesensormodule.ui.components.AppCard
 import com.example.vehiclesensormodule.ui.components.AppTextField
 import com.example.vehiclesensormodule.ui.components.BrandMark
-import com.example.vehiclesensormodule.ui.components.StatusDot
-import com.example.vehiclesensormodule.ui.components.VehiclePicker
 import com.example.vehiclesensormodule.ui.components.CardShape
 import com.example.vehiclesensormodule.ui.components.ControlShape
 import com.example.vehiclesensormodule.ui.components.PrimaryButton
 import com.example.vehiclesensormodule.ui.components.ScreenBackground
 import com.example.vehiclesensormodule.ui.components.SectionLabel
+import com.example.vehiclesensormodule.ui.components.StatusDot
+import com.example.vehiclesensormodule.ui.components.VehiclePicker
 import com.example.vehiclesensormodule.ui.theme.Accent
 import com.example.vehiclesensormodule.ui.theme.Danger
 import com.example.vehiclesensormodule.ui.theme.OutlineSubtle
@@ -78,8 +78,8 @@ import com.example.vehiclesensormodule.ui.theme.SurfaceRaised
 import com.example.vehiclesensormodule.ui.theme.TextMuted
 import com.example.vehiclesensormodule.ui.theme.TextSecondary
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
-import kotlinx.coroutines.launch
 import com.example.vehiclesensormodule.ui.theme.Warning
+import kotlinx.coroutines.launch
 
 data class DriveState(
     val username: String,
@@ -100,11 +100,7 @@ data class DriveState(
     val sensors: SensorReadings
 )
 
-private enum class DriveStatus(
-    val color: Color,
-    val title: String,
-    val detail: String
-) {
+private enum class DriveStatus(val color: Color, val title: String, val detail: String) {
     LocationOff(
         Danger,
         "Location is off",
@@ -146,20 +142,6 @@ private fun DriveState.status(): DriveStatus = when {
     else -> DriveStatus.Live
 }
 
-private fun compassPoint(degrees: Float): String {
-    val points = listOf(
-        "North",
-        "North-East",
-        "East",
-        "South-East",
-        "South",
-        "South-West",
-        "West",
-        "North-West"
-    )
-    return points[(((degrees % 360) + 360) / 45f + 0.5f).toInt() % points.size]
-}
-
 @Composable
 fun MainScreen(
     state: DriveState,
@@ -174,14 +156,12 @@ fun MainScreen(
     onAllowNoBatteryLimits: () -> Unit = {},
     onOpenBatterySaver: () -> Unit = {}
 ) {
-
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
 
     val status = state.status()
 
     ScreenBackground {
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -189,7 +169,6 @@ fun MainScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
             TopBar(
                 username = state.username,
                 onLogout = { confirmLogout = true },
@@ -272,11 +251,7 @@ fun MainScreen(
 }
 
 @Composable
-private fun TopBar(
-    username: String,
-    onLogout: () -> Unit,
-    onOpenAccount: () -> Unit
-) {
+private fun TopBar(username: String, onLogout: () -> Unit, onOpenAccount: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -352,15 +327,13 @@ private fun StatusHero(
                 .background(color.copy(alpha = 0.07f))
                 .padding(16.dp)
         ) {
-
             Row(verticalAlignment = Alignment.CenterVertically) {
-
                 PulsingCar(
                     color = color,
                     pulsing =
-                        status != DriveStatus.LocationOff &&
-                            status != DriveStatus.PhoneLocationOff &&
-                            status != DriveStatus.SharingOff
+                    status != DriveStatus.LocationOff &&
+                        status != DriveStatus.PhoneLocationOff &&
+                        status != DriveStatus.SharingOff
                 )
 
                 Spacer(modifier = Modifier.width(14.dp))
@@ -382,9 +355,7 @@ private fun StatusHero(
             }
 
             when (status) {
-
                 DriveStatus.LocationOff -> {
-
                     Spacer(modifier = Modifier.height(14.dp))
 
                     PrimaryButton(
@@ -405,7 +376,6 @@ private fun StatusHero(
                 }
 
                 DriveStatus.PhoneLocationOff -> {
-
                     Spacer(modifier = Modifier.height(14.dp))
 
                     PrimaryButton(
@@ -419,7 +389,6 @@ private fun StatusHero(
                 }
 
                 DriveStatus.SharingOff -> {
-
                     Spacer(modifier = Modifier.height(14.dp))
 
                     PrimaryButton(
@@ -429,7 +398,6 @@ private fun StatusHero(
                 }
 
                 else -> {
-
                     Spacer(modifier = Modifier.height(14.dp))
 
                     DisconnectButton(onDisconnect)
@@ -452,10 +420,7 @@ private fun DisconnectButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun PulsingCar(
-    color: Color,
-    pulsing: Boolean
-) {
+private fun PulsingCar(color: Color, pulsing: Boolean) {
     val transition = rememberInfiniteTransition(label = "pulse")
 
     val progress by transition.animateFloat(
@@ -505,12 +470,7 @@ private fun PulsingCar(
  * the driver's main information off the screen.
  */
 @Composable
-private fun PowerWarningCard(
-    title: String,
-    detail: String,
-    buttonText: String,
-    onClick: () -> Unit
-) {
+private fun PowerWarningCard(title: String, detail: String, buttonText: String, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = CardShape,
@@ -574,11 +534,7 @@ private fun gpsQuality(state: DriveState): Pair<String, Color> {
  * step, with the password, so it can't happen by accident.
  */
 @Composable
-private fun AccountDialogs(
-    state: DriveState,
-    onDismiss: () -> Unit,
-    onDeleteAccount: suspend (String) -> String?
-) {
+private fun AccountDialogs(state: DriveState, onDismiss: () -> Unit, onDeleteAccount: suspend (String) -> String?) {
     var confirming by rememberSaveable { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -681,17 +637,13 @@ private fun AccountDialogs(
 }
 
 @Composable
-private fun VehicleCard(
-    state: DriveState,
-    onChangeVehicleType: (VehicleType) -> Unit
-) {
+private fun VehicleCard(state: DriveState, onChangeVehicleType: (VehicleType) -> Unit) {
     var choosing by rememberSaveable { mutableStateOf(false) }
 
     val type = state.vehicleType
 
     AppCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -735,7 +687,6 @@ private fun VehicleCard(
         }
 
         if (state.vehicleTypeError != null) {
-
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
@@ -771,7 +722,6 @@ private fun VehicleCard(
 
 @Composable
 private fun ConnectionCard(state: DriveState) {
-
     val (gpsText, gpsColor) = gpsQuality(state)
 
     AppCard {
@@ -819,11 +769,7 @@ private fun ConnectionCard(state: DriveState) {
 }
 
 @Composable
-private fun ConnectionRow(
-    label: String,
-    value: String,
-    dot: Color? = null
-) {
+private fun ConnectionRow(label: String, value: String, dot: Color? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -873,17 +819,15 @@ private fun GuideCard(username: String) {
         GuideRow(
             icon = R.drawable.ic_lock,
             title = "You can lock your phone",
-            detail = "Sharing carries on with the screen off. To stop it, tap Disconnect, use the notification, close the app from recent apps or log out."
+            detail =
+            "Sharing carries on with the screen off. To stop it, tap Disconnect, " +
+                "use the notification, close the app from recent apps or log out."
         )
     }
 }
 
 @Composable
-private fun GuideRow(
-    @DrawableRes icon: Int,
-    title: String,
-    detail: String
-) {
+private fun GuideRow(@DrawableRes icon: Int, title: String, detail: String) {
     Row {
         Box(
             modifier = Modifier
@@ -920,7 +864,6 @@ private fun GuideRow(
 
 @Composable
 private fun SensorDetailsCard(state: DriveState) {
-
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     val chevronRotation by animateFloatAsState(
@@ -1012,10 +955,7 @@ private fun SensorDetailsCard(state: DriveState) {
 }
 
 @Composable
-private fun ReadingRow(
-    label: String,
-    values: List<Pair<String, String>>
-) {
+private fun ReadingRow(label: String, values: List<Pair<String, String>>) {
     Column {
         SectionLabel(label)
 

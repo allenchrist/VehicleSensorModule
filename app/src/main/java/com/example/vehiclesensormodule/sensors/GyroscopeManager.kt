@@ -17,7 +17,6 @@ class GyroscopeManager(context: Context) : SensorEventListener {
     private var onDataChanged: ((Float, Float, Float) -> Unit)? = null
 
     fun startListening(callback: (Float, Float, Float) -> Unit) {
-
         onDataChanged = callback
 
         gyroscope?.let {
@@ -34,9 +33,7 @@ class GyroscopeManager(context: Context) : SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-
         if (event?.sensor?.type == Sensor.TYPE_GYROSCOPE) {
-
             val x = event.values[0]
             val y = event.values[1]
             val z = event.values[2]

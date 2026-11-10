@@ -27,6 +27,7 @@ import com.example.vehiclesensormodule.sensors.AccelerometerManager
 import com.example.vehiclesensormodule.sensors.CompassManager
 import com.example.vehiclesensormodule.sensors.GPSManager
 import com.example.vehiclesensormodule.sensors.GyroscopeManager
+import com.example.vehiclesensormodule.sensors.shouldSendHeading
 
 /**
  * Owns the GPS, sensors and connection to the backend during a drive.
@@ -104,7 +105,6 @@ class VehicleTrackingService : Service() {
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
 
         override fun onAvailable(network: Network) {
-
             val changed = lastNetwork != null && lastNetwork != network
 
             lastNetwork = network
@@ -125,12 +125,7 @@ class VehicleTrackingService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(
-        intent: Intent?,
-        flags: Int,
-        startId: Int
-    ): Int {
-
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
@@ -139,7 +134,6 @@ class VehicleTrackingService : Service() {
         try {
             startInForeground()
         } catch (e: RuntimeException) {
-
             // Android refused, because location isn't allowed or the
             // app isn't visible. The screen offers to start it again.
             Log.e(TAG, "Couldn't start sharing", e)
@@ -158,14 +152,12 @@ class VehicleTrackingService : Service() {
 
     // The driver swiped the app away from recent apps
     override fun onTaskRemoved(rootIntent: Intent?) {
-
         stopSelf()
 
         super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
-
         publishHandler.removeCallbacks(publishSensors)
 
         if (tracking) {
@@ -191,7 +183,6 @@ class VehicleTrackingService : Service() {
     }
 
     private fun startTracking() {
-
         val sessionManager = SessionManager(this)
         val token = sessionManager.getToken()
 
@@ -257,7 +248,6 @@ class VehicleTrackingService : Service() {
     }
 
     private fun onHeading(newHeading: Float) {
-
         heading = newHeading
 
         val now = SystemClock.elapsedRealtime()
@@ -265,8 +255,13 @@ class VehicleTrackingService : Service() {
         // The backend only takes a heading once it knows where the car is
         if (
             lastLocationAt == 0L ||
-            now - headingSentAt < HEADING_SEND_INTERVAL_MS ||
-            angleBetween(newHeading, sentHeading) < HEADING_SEND_DEGREES
+            !shouldSendHeading(
+                heading = newHeading,
+                lastSent = sentHeading,
+                sinceLastSentMs = now - headingSentAt,
+                minDegrees = HEADING_SEND_DEGREES,
+                minIntervalMs = HEADING_SEND_INTERVAL_MS
+            )
         ) {
             return
         }
@@ -277,14 +272,7 @@ class VehicleTrackingService : Service() {
         }
     }
 
-    private fun angleBetween(a: Float, b: Float): Float {
-        val difference = Math.abs(a - b) % 360f
-
-        return if (difference > 180f) 360f - difference else difference
-    }
-
     private fun onLocation(location: Location) {
-
         val receivedAt = SystemClock.elapsedRealtime()
 
         if (lastLocationAt != 0L && receivedAt - lastLocationAt > GPS_GAP_LOG_MS) {
@@ -325,19 +313,15 @@ class VehicleTrackingService : Service() {
     }
 
     private fun startInForeground() {
-
         val notification = buildNotification()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-
             startForeground(
                 NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             )
-
         } else {
-
             startForeground(
                 NOTIFICATION_ID,
                 notification
@@ -346,10 +330,8 @@ class VehicleTrackingService : Service() {
     }
 
     private fun buildNotification(): Notification {
-
         val builder =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-
                 getSystemService(NotificationManager::class.java)
                     .createNotificationChannel(
                         NotificationChannel(
@@ -360,9 +342,7 @@ class VehicleTrackingService : Service() {
                     )
 
                 Notification.Builder(this, CHANNEL_ID)
-
             } else {
-
                 @Suppress("DEPRECATION")
                 Notification.Builder(this)
             }
