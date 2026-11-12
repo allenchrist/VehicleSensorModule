@@ -36,14 +36,18 @@ Keep the key and its password safe. A phone can only update the app with the sam
 
 ## Use it
 
-1. Create an account and choose what you drive: car, truck, lorry, bus or auto. Enter the code we email you, then log in. You can change the vehicle later on the main screen.
+1. Create an account and choose what you drive: car, truck, lorry, bus, auto or ambulance. Enter the code we email you, then log in. You can change the vehicle later on the main screen.
 2. Tap **Connect**. Allow location, and allow notifications so you can see the **Stop sharing** button.
 3. If the app shows **Battery limits are on** or **Battery Saver is on**, follow its button. These can delay your position while the screen is locked.
 4. Open the dashboard website and log in with the same account.
 
 Each phone needs its own account. Logging in on a new phone moves the account to that phone.
 
-If you forget your password, tap **Forgot password?** on the login screen to get a code by email. To delete your account, scroll to the bottom of the main screen and tap **Delete account**.
+**Quick Settings tile:** add **Share position** to your phone's Quick Settings (pull down twice, then edit). Tapping it when off opens the app and connects. Tapping it when on stops sharing. Android only lets an app start location sharing while it's on screen, which is why turning it on opens the app.
+
+**Mark a narrow road:** if a narrow road is missing, tap **Start recording** on the main screen while connected, drive through it, then tap **Finish**. Name it and send it. The app sends a shape a few metres either side of your track, and an admin reviews it on the website before it's used. Only accurate GPS positions are recorded, and it needs at least 15 m.
+
+If you forget your password, tap **Forgot password?** on the login screen to get a code by email. To delete your account, tap the car icon or your name at the top of the main screen, then **Delete account**. It asks for your password first.
 
 ## When it shares your position
 
@@ -102,7 +106,7 @@ The app only allows encrypted connections, so plain `http://` and `ws://` addres
 gradlew.bat :app:ktlintCheck :app:testDebugUnitTest :app:lintDebug
 ```
 
-`ktlintCheck` checks the code style, set in `.editorconfig`, and `gradlew.bat :app:ktlintFormat` fixes most of it. The unit tests cover login encryption, the compass heading and its direction names, and the wait between reconnect attempts.
+`ktlintCheck` checks the code style, set in `.editorconfig`, and `gradlew.bat :app:ktlintFormat` fixes most of it. The unit tests cover login encryption, the compass heading and its direction names, the wait between reconnect attempts, and turning a recorded track into a road shape.
 
 GitHub also builds the app and runs these on every push. Results are in the repository's **Actions** tab. Android's secure storage and background behaviour can only be tested on a real phone.
 

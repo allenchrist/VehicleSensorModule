@@ -60,6 +60,20 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- The Share position button in Quick Settings -->
+        <service
+            android:name=".service.ShareTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_car"
+            android:label="@string/share_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+
+        </service>
+
     </application>
 
 </manifest>

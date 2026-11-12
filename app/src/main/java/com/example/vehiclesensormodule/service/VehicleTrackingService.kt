@@ -22,6 +22,8 @@ import androidx.core.content.ContextCompat
 import com.example.vehiclesensormodule.MainActivity
 import com.example.vehiclesensormodule.R
 import com.example.vehiclesensormodule.auth.SessionManager
+import com.example.vehiclesensormodule.marking.GeoPoint
+import com.example.vehiclesensormodule.marking.RoadOutline
 import com.example.vehiclesensormodule.network.VehicleWebSocketClient
 import com.example.vehiclesensormodule.sensors.AccelerometerManager
 import com.example.vehiclesensormodule.sensors.CompassManager
@@ -59,6 +61,14 @@ class VehicleTrackingService : Service() {
 
         // GPS is requested every second, so a longer wait than this is a delay
         private const val GPS_GAP_LOG_MS = 3000L
+
+        // While marking a road, fixes less accurate than this are left out,
+        // and so are ones less than this far from the last point
+        private const val MARKING_MAX_ACCURACY_M = 25f
+        private const val MARKING_MIN_STEP_M = 2.0
+
+        // About 4 km, far longer than any narrow road
+        private const val MARKING_MAX_POINTS = 2000
 
         // A safety limit, in case the service is never stopped
         private const val WAKE_LOCK_TIMEOUT_MS = 12 * 60 * 60 * 1000L
@@ -289,7 +299,8 @@ class VehicleTrackingService : Service() {
                 latitude = location.latitude,
                 longitude = location.longitude,
                 accuracyMetres = accuracy,
-                lastFixAt = System.currentTimeMillis()
+                lastFixAt = System.currentTimeMillis(),
+                markedTrack = withMarkedPoint(it, location, accuracy)
             )
         }
 
@@ -310,6 +321,20 @@ class VehicleTrackingService : Service() {
             bearing = if (location.hasBearing()) location.bearing else null,
             accuracy = accuracy
         )
+    }
+
+    // The track so far, plus this fix if it's being recorded and is good enough
+    private fun withMarkedPoint(state: TrackingSnapshot, location: Location, accuracy: Float?): List<GeoPoint> {
+        val track = state.markedTrack
+        val point = GeoPoint(location.latitude, location.longitude)
+
+        val useIt =
+            state.marking == MarkingStage.Recording &&
+                (accuracy ?: Float.MAX_VALUE) <= MARKING_MAX_ACCURACY_M &&
+                track.size < MARKING_MAX_POINTS &&
+                (track.isEmpty() || RoadOutline.metresBetween(track.last(), point) >= MARKING_MIN_STEP_M)
+
+        return if (useIt) track + point else track
     }
 
     private fun startInForeground() {

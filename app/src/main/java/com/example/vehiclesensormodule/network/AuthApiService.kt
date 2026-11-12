@@ -63,6 +63,15 @@ data class VehicleTypeRequest(val vehicleType: String)
 data class VehicleTypeResponse(val vehicleType: String)
 
 // --------------------------------------------------
+// SUGGESTING A NARROW ROAD
+// --------------------------------------------------
+
+// The outline is a list of [latitude, longitude] points
+data class RoadSuggestionRequest(val name: String, val polygon: List<List<Double>>, val reason: String)
+
+data class RoadSuggestionResponse(val success: Boolean)
+
+// --------------------------------------------------
 // AUTH API
 // --------------------------------------------------
 
@@ -103,6 +112,12 @@ interface AuthApiService {
         @Header("Authorization") authorization: String,
         @Body request: DeviceAssociationRequest
     ): Response<DeviceAssociationResponse>
+
+    @POST("api/narrow-road-suggestions")
+    suspend fun suggestRoad(
+        @Header("Authorization") authorization: String,
+        @Body request: RoadSuggestionRequest
+    ): Response<RoadSuggestionResponse>
 
     @POST("api/auth/device/unlink")
     suspend fun unlinkDevice(

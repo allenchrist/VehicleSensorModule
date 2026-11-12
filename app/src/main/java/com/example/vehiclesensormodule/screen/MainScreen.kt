@@ -56,14 +56,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
+import com.example.vehiclesensormodule.marking.RoadOutline
 import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.sensors.compassPoint
+import com.example.vehiclesensormodule.service.MarkingStage
 import com.example.vehiclesensormodule.service.SensorReadings
 import com.example.vehiclesensormodule.ui.components.AppCard
 import com.example.vehiclesensormodule.ui.components.AppTextField
 import com.example.vehiclesensormodule.ui.components.BrandMark
 import com.example.vehiclesensormodule.ui.components.CardShape
 import com.example.vehiclesensormodule.ui.components.ControlShape
+import com.example.vehiclesensormodule.ui.components.MessageBanner
+import com.example.vehiclesensormodule.ui.components.MessageKind
 import com.example.vehiclesensormodule.ui.components.PrimaryButton
 import com.example.vehiclesensormodule.ui.components.ScreenBackground
 import com.example.vehiclesensormodule.ui.components.SectionLabel
@@ -97,7 +101,9 @@ data class DriveState(
     val longitude: Double,
     val accuracyMetres: Float?,
     val heading: Float,
-    val sensors: SensorReadings
+    val sensors: SensorReadings,
+    val marking: MarkingStage = MarkingStage.Off,
+    val markedLengthM: Double = 0.0
 )
 
 private enum class DriveStatus(val color: Color, val title: String, val detail: String) {
@@ -154,7 +160,11 @@ fun MainScreen(
     onDeleteAccount: suspend (String) -> String? = { null },
     onOpenLocationSettings: () -> Unit = {},
     onAllowNoBatteryLimits: () -> Unit = {},
-    onOpenBatterySaver: () -> Unit = {}
+    onOpenBatterySaver: () -> Unit = {},
+    onStartMarking: () -> Unit = {},
+    onFinishMarking: () -> Unit = {},
+    onDiscardMarking: () -> Unit = {},
+    onSendRoad: suspend (name: String, reason: String) -> String? = { _, _ -> null }
 ) {
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
@@ -208,6 +218,14 @@ fun MainScreen(
             )
 
             ConnectionCard(state = state)
+
+            MarkRoadCard(
+                state = state,
+                onStart = onStartMarking,
+                onFinish = onFinishMarking,
+                onDiscard = onDiscardMarking,
+                onSend = onSendRoad
+            )
 
             GuideCard(username = state.username)
 
@@ -766,6 +784,191 @@ private fun ConnectionCard(state: DriveState) {
             value = if (state.sharingOn) compassPoint(state.heading) else "—"
         )
     }
+}
+
+/**
+ * Suggesting a narrow road by driving through it: start, drive to the end,
+ * finish, then name it and send it. An admin reviews it before it's used.
+ */
+@Composable
+private fun MarkRoadCard(
+    state: DriveState,
+    onStart: () -> Unit,
+    onFinish: () -> Unit,
+    onDiscard: () -> Unit,
+    onSend: suspend (name: String, reason: String) -> String?
+) {
+    var naming by rememberSaveable { mutableStateOf(false) }
+    var sent by rememberSaveable { mutableStateOf(false) }
+
+    val metres = state.markedLengthM.toInt()
+    val longEnough = state.markedLengthM >= RoadOutline.MIN_LENGTH_M
+
+    AppCard {
+        SectionLabel("Mark a narrow road")
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        when (state.marking) {
+            MarkingStage.Off -> {
+                Text(
+                    text = "Missing a narrow road? Drive through it while recording, and it's sent " +
+                        "for review. An admin checks it before it's used.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+
+                if (sent) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    MessageBanner("Sent for review. Thank you!", MessageKind.Success)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                PrimaryButton(
+                    text = "Start recording",
+                    onClick = {
+                        sent = false
+                        onStart()
+                    },
+                    enabled = state.sharingOn && state.hasRecentFix
+                )
+
+                if (!state.sharingOn || !state.hasRecentFix) {
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = if (state.sharingOn) "Waiting for GPS…" else "Connect first to record a road.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted
+                    )
+                }
+            }
+
+            MarkingStage.Recording -> {
+                Text(
+                    text = "Recording · $metres m",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Danger
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = if (longEnough) {
+                        "Drive to the end of the narrow road, then tap Finish."
+                    } else {
+                        "Drive through the narrow road. Finish works after " +
+                            "${RoadOutline.MIN_LENGTH_M.toInt()} m."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                PrimaryButton(text = "Finish", onClick = onFinish, enabled = longEnough)
+
+                TextButton(onClick = onDiscard, modifier = Modifier.fillMaxWidth()) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+
+            MarkingStage.Ready -> {
+                Text(
+                    text = "Recorded $metres m",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                PrimaryButton(text = "Name it and send", onClick = { naming = true })
+
+                TextButton(onClick = onDiscard, modifier = Modifier.fillMaxWidth()) {
+                    Text("Discard", color = TextSecondary)
+                }
+            }
+        }
+    }
+
+    if (naming && state.marking == MarkingStage.Ready) {
+        SendRoadDialog(
+            onDismiss = { naming = false },
+            onSend = { name, reason ->
+                val error = onSend(name, reason)
+
+                if (error == null) {
+                    naming = false
+                    sent = true
+                }
+
+                error
+            }
+        )
+    }
+}
+
+@Composable
+private fun SendRoadDialog(onDismiss: () -> Unit, onSend: suspend (name: String, reason: String) -> String?) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var reason by rememberSaveable { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var sending by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!sending) onDismiss()
+        },
+        containerColor = SurfaceRaised,
+        title = { Text("Send this road") },
+        text = {
+            Column {
+                AppTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        errorMessage = null
+                    },
+                    label = "Road name",
+                    icon = R.drawable.ic_road,
+                    errorText = errorMessage,
+                    enabled = !sending
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                AppTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = "Why it's narrow (optional)",
+                    icon = R.drawable.ic_note,
+                    imeAction = ImeAction.Done,
+                    enabled = !sending
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    scope.launch {
+                        sending = true
+                        errorMessage = onSend(name, reason)
+                        sending = false
+                    }
+                },
+                enabled = name.isNotBlank() && !sending
+            ) {
+                Text(if (sending) "Sending…" else "Send")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !sending) {
+                Text("Not now")
+            }
+        }
+    )
 }
 
 @Composable

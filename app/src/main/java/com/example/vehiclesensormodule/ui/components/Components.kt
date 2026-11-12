@@ -307,7 +307,10 @@ fun MessageBanner(text: String, kind: MessageKind, modifier: Modifier = Modifier
     }
 }
 
-/** One tile for each vehicle type, used at signup and when changing it later. */
+/**
+ * One tile for each vehicle type, used at signup and when changing it later.
+ * In rows of three, so longer names such as Ambulance fit on a phone.
+ */
 @Composable
 fun VehiclePicker(
     selected: VehicleType?,
@@ -315,54 +318,81 @@ fun VehiclePicker(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        VehicleType.entries.forEach { type ->
-
-            val isSelected = type == selected
-
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(ControlShape)
-                    .selectable(
-                        selected = isSelected,
-                        enabled = enabled,
-                        role = Role.RadioButton,
-                        onClick = { onSelected(type) }
-                    ),
-                shape = ControlShape,
-                color = if (isSelected) Accent.copy(alpha = 0.14f) else SurfaceCard,
-                border = BorderStroke(
-                    width = if (isSelected) 1.5.dp else 1.dp,
-                    color = if (isSelected) Accent else OutlineSubtle
-                )
+        VehicleType.entries.chunked(PICKER_COLUMNS).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(vertical = 10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        painter = painterResource(type.icon),
-                        contentDescription = null,
-                        tint = if (isSelected) Accent else TextSecondary,
-                        modifier = Modifier.size(24.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = type.label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isSelected) TextPrimary else TextSecondary,
-                        maxLines = 1
+                row.forEach { type ->
+                    VehicleTile(
+                        type = type,
+                        isSelected = type == selected,
+                        enabled = enabled,
+                        onSelected = onSelected,
+                        modifier = Modifier.weight(1f)
                     )
                 }
+
+                // Keeps a shorter last row's tiles the same width
+                repeat(PICKER_COLUMNS - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
+        }
+    }
+}
+
+private const val PICKER_COLUMNS = 3
+
+@Composable
+private fun VehicleTile(
+    type: VehicleType,
+    isSelected: Boolean,
+    enabled: Boolean,
+    onSelected: (VehicleType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .clip(ControlShape)
+            .selectable(
+                selected = isSelected,
+                enabled = enabled,
+                role = Role.RadioButton,
+                onClick = { onSelected(type) }
+            ),
+        shape = ControlShape,
+        color = if (isSelected) Accent.copy(alpha = 0.14f) else SurfaceCard,
+        border = BorderStroke(
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) Accent else OutlineSubtle
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                painter = painterResource(type.icon),
+                contentDescription = null,
+                tint = if (isSelected) Accent else TextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = type.label,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isSelected) TextPrimary else TextSecondary,
+                maxLines = 1
+            )
         }
     }
 }

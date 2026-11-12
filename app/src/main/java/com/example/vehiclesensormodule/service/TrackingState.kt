@@ -1,5 +1,6 @@
 package com.example.vehiclesensormodule.service
 
+import com.example.vehiclesensormodule.marking.GeoPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +15,17 @@ data class SensorReadings(
     val gyroZ: Float = 0f
 )
 
+enum class MarkingStage {
+    // Not marking a road
+    Off,
+
+    // Recording the drive through it
+    Recording,
+
+    // Finished, and waiting to be sent or discarded
+    Ready
+}
+
 data class TrackingSnapshot(
     val running: Boolean = false,
     val backendConnected: Boolean = false,
@@ -23,7 +35,9 @@ data class TrackingSnapshot(
     val accuracyMetres: Float? = null,
     val heading: Float = 0f,
     val sensors: SensorReadings = SensorReadings(),
-    val lastFixAt: Long? = null
+    val lastFixAt: Long? = null,
+    val marking: MarkingStage = MarkingStage.Off,
+    val markedTrack: List<GeoPoint> = emptyList()
 )
 
 /**
@@ -44,6 +58,18 @@ object TrackingState {
 
     fun reset() {
         snapshot.value = TrackingSnapshot()
+    }
+
+    fun startMarking() {
+        update { it.copy(marking = MarkingStage.Recording, markedTrack = emptyList()) }
+    }
+
+    fun finishMarking() {
+        update { it.copy(marking = MarkingStage.Ready) }
+    }
+
+    fun discardMarking() {
+        update { it.copy(marking = MarkingStage.Off, markedTrack = emptyList()) }
     }
 
     fun markLoginRejected() {

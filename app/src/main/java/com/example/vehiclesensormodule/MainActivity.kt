@@ -34,12 +34,14 @@ import com.example.vehiclesensormodule.auth.ForgotPasswordScreen
 import com.example.vehiclesensormodule.auth.LoginScreen
 import com.example.vehiclesensormodule.auth.SessionManager
 import com.example.vehiclesensormodule.auth.SignupScreen
+import com.example.vehiclesensormodule.marking.RoadOutline
 import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.network.ApiClient
 import com.example.vehiclesensormodule.network.CONNECTION_ERROR_MESSAGE
 import com.example.vehiclesensormodule.network.DeleteAccountRequest
 import com.example.vehiclesensormodule.network.DeviceAssociationRequest
 import com.example.vehiclesensormodule.network.DeviceIdentity
+import com.example.vehiclesensormodule.network.RoadSuggestionRequest
 import com.example.vehiclesensormodule.network.VehicleTypeRequest
 import com.example.vehiclesensormodule.network.readableError
 import com.example.vehiclesensormodule.screen.DriveState
@@ -54,6 +56,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+
+        // Sent by the Quick Settings tile, to start sharing once the app opens
+        const val ACTION_CONNECT = "com.example.vehiclesensormodule.CONNECT"
 
         // Keeps trying if the server is waking up when the app opens
         private const val PROFILE_RETRY_MS = 10_000L
@@ -74,6 +79,9 @@ class MainActivity : ComponentActivity() {
 
     // The driver tapped Connect and location hasn't been allowed yet
     private var connectAfterPermission by mutableStateOf(false)
+
+    // The Quick Settings tile asked to connect, which happens once on screen
+    private var connectWhenShown = false
 
     private var vehicleType by mutableStateOf<VehicleType?>(null)
 
@@ -99,6 +107,8 @@ class MainActivity : ComponentActivity() {
         sessionManager = SessionManager(this)
 
         locationPermissionGranted = hasLocationPermission()
+
+        connectIfAsked(intent)
 
         // --------------------------------------------------
         // Compose UI
@@ -243,11 +253,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+
+        connectIfAsked(intent)
+    }
+
+    // The Quick Settings tile opened the app to connect. Android only
+    // allows location sharing to start once the app is on screen.
+    private fun connectIfAsked(intent: Intent?) {
+        if (intent?.action != ACTION_CONNECT) {
+            return
+        }
+
+        // Only once, so turning the phone doesn't connect again
+        intent.action = null
+
+        connectWhenShown = true
+    }
+
     override fun onResume() {
         super.onResume()
 
         // Location may have been allowed from the settings app
         locationPermissionGranted = hasLocationPermission()
+
+        if (connectWhenShown) {
+            connectWhenShown = false
+
+            if (sessionManager.isLoggedIn()) {
+                connect()
+            }
+        }
     }
 
     /**
@@ -410,6 +447,37 @@ class MainActivity : ComponentActivity() {
         }
     } catch (e: Exception) {
         CONNECTION_ERROR_MESSAGE
+    }
+
+    // Returns an error message to show, or null once the road is sent
+    private suspend fun sendRoadSuggestion(name: String, reason: String): String? {
+        val outline =
+            RoadOutline.build(TrackingState.state.value.markedTrack)
+                ?: return "Drive at least ${RoadOutline.MIN_LENGTH_M.toInt()} m through the road first."
+
+        return try {
+            val response =
+                ApiClient.authService.suggestRoad(
+                    authorization = "Bearer ${sessionManager.getToken()}",
+                    request = RoadSuggestionRequest(name.trim(), outline, reason.trim())
+                )
+
+            when {
+                response.code() == HTTP_UNAUTHORIZED -> {
+                    TrackingState.markLoginRejected()
+                    null
+                }
+
+                response.isSuccessful -> {
+                    TrackingState.discardMarking()
+                    null
+                }
+
+                else -> response.readableError("Couldn't send the road.")
+            }
+        } catch (e: Exception) {
+            CONNECTION_ERROR_MESSAGE
+        }
     }
 
     private fun connect() {
@@ -582,7 +650,11 @@ class MainActivity : ComponentActivity() {
 
                 heading = tracking.heading,
 
-                sensors = tracking.sensors
+                sensors = tracking.sensors,
+
+                marking = tracking.marking,
+
+                markedLengthM = RoadOutline.lengthMetres(tracking.markedTrack)
             ),
 
             onAllowLocation = ::requestLocationPermission,
@@ -607,6 +679,14 @@ class MainActivity : ComponentActivity() {
 
                 error
             },
+
+            onStartMarking = TrackingState::startMarking,
+
+            onFinishMarking = TrackingState::finishMarking,
+
+            onDiscardMarking = TrackingState::discardMarking,
+
+            onSendRoad = ::sendRoadSuggestion,
 
             onOpenLocationSettings = ::openLocationSettings,
 
