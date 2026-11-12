@@ -13,8 +13,9 @@ enum class VehicleType(val id: String, val label: String, @DrawableRes val icon:
     Bus("bus", "Bus", R.drawable.ic_vehicle_bus),
     Auto("auto", "Auto", R.drawable.ic_vehicle_auto),
 
-    // Always gets right of way in a narrow road
-    Ambulance("ambulance", "Ambulance", R.drawable.ic_vehicle_ambulance);
+    // Any emergency vehicle, such as an ambulance, fire engine or police.
+    // Always gets right of way in a narrow road.
+    Priority("priority", "Priority vehicle", R.drawable.ic_vehicle_priority);
 
     companion object {
         // A newer type from the server shouldn't break an older app

@@ -36,7 +36,7 @@ Keep the key and its password safe. A phone can only update the app with the sam
 
 ## Use it
 
-1. Create an account and choose what you drive: car, truck, lorry, bus, auto or ambulance. Enter the code we email you, then log in. You can change the vehicle later on the main screen.
+1. Create an account and choose what you drive: car, truck, lorry, bus, auto or priority vehicle (any emergency vehicle, which always gets right of way). Enter the code we email you, then log in. You can change the vehicle later on the main screen.
 2. Tap **Connect**. Allow location, and allow notifications so you can see the **Stop sharing** button.
 3. If the app shows **Battery limits are on** or **Battery Saver is on**, follow its button. These can delay your position while the screen is locked.
 4. Open the dashboard website and log in with the same account.

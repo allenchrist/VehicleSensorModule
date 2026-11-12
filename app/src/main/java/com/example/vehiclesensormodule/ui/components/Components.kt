@@ -309,7 +309,7 @@ fun MessageBanner(text: String, kind: MessageKind, modifier: Modifier = Modifier
 
 /**
  * One tile for each vehicle type, used at signup and when changing it later.
- * In rows of three, so longer names such as Ambulance fit on a phone.
+ * In rows of three, so longer names such as Priority vehicle fit on a phone.
  */
 @Composable
 fun VehiclePicker(
