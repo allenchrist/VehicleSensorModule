@@ -51,6 +51,7 @@ import com.example.vehiclesensormodule.screen.MainScreen
 import com.example.vehiclesensormodule.screen.MarkRoadScreen
 import com.example.vehiclesensormodule.service.TrackingState
 import com.example.vehiclesensormodule.service.VehicleTrackingService
+import com.example.vehiclesensormodule.ui.theme.AppTheme
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -102,10 +103,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
-        )
+        AppTheme.load(this)
+
+        showSystemBars(light = AppTheme.isLight)
 
         sessionManager = SessionManager(this)
 
@@ -173,6 +173,11 @@ class MainActivity : ComponentActivity() {
                 if (loginRejected) {
                     logOut()
                 }
+            }
+
+            // Dark icons on a light screen, and light icons on a dark one
+            LaunchedEffect(AppTheme.isLight) {
+                showSystemBars(light = AppTheme.isLight)
             }
 
             VehicleSensorModuleTheme {
@@ -254,6 +259,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun showSystemBars(light: Boolean) {
+        val style =
+            if (light) {
+                SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.dark(Color.TRANSPARENT)
+            }
+
+        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
     override fun onNewIntent(intent: Intent) {

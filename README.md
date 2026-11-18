@@ -43,6 +43,8 @@ Keep the key and its password safe. A phone can only update the app with the sam
 
 Each phone needs its own account. Logging in on a new phone moves the account to that phone.
 
+**Dark or light:** tap the car icon or your name at the top of the main screen, then **Light mode** or **Dark mode**. Light mode also shows the Mark a narrow road map in its normal colours. The app remembers the choice.
+
 **Quick Settings tile:** add **Drive Mode** to your phone's Quick Settings (pull down twice, then edit). Tapping it when off opens the app and connects. Tapping it when on stops sharing. Android only lets an app start location sharing while it's on screen, which is why turning it on opens the app.
 
 **Mark a narrow road:** if a narrow road is missing, tap the car icon or your name at the top of the main screen, then **Mark a narrow road**. On its map, tap **Start recording** while connected and drive through the road. Your track is drawn on the map as you go. Tap **Finish** to see the shape that will be sent, then name it and send it. If you leave the page while recording, it carries on, and the main screen shows a way back. The map shows [OpenStreetMap](https://www.openstreetmap.org/copyright), darkened to match the app, and **Satellite** switches to satellite photos from Esri, which show the buildings either side of a lane. The app sends a shape a few metres either side of your track, and an admin reviews it on the website before it's used. Only accurate GPS positions are recorded, and it needs at least 15 m.

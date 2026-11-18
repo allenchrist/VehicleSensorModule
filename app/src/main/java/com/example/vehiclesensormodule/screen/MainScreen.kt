@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
@@ -71,6 +72,7 @@ import com.example.vehiclesensormodule.ui.components.SectionLabel
 import com.example.vehiclesensormodule.ui.components.StatusDot
 import com.example.vehiclesensormodule.ui.components.VehiclePicker
 import com.example.vehiclesensormodule.ui.theme.Accent
+import com.example.vehiclesensormodule.ui.theme.AppTheme
 import com.example.vehiclesensormodule.ui.theme.Danger
 import com.example.vehiclesensormodule.ui.theme.OutlineSubtle
 import com.example.vehiclesensormodule.ui.theme.Success
@@ -528,6 +530,8 @@ private fun PowerWarningCard(title: String, detail: String, buttonText: String, 
     }
 }
 
+// Reads the theme colours, so it runs as part of drawing the screen
+@Composable
 private fun gpsQuality(state: DriveState): Pair<String, Color> {
     val accuracy = state.accuracyMetres
 
@@ -586,6 +590,21 @@ private fun AccountDialogs(
                         title = "Mark a narrow road",
                         detail = "Drive through a missing road to suggest it",
                         onClick = onOpenMarkRoad
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val context = LocalContext.current
+
+                    AccountOption(
+                        icon = if (AppTheme.isLight) R.drawable.ic_dark_mode else R.drawable.ic_light_mode,
+                        title = if (AppTheme.isLight) "Dark mode" else "Light mode",
+                        detail = if (AppTheme.isLight) {
+                            "Dark screens and a darkened map"
+                        } else {
+                            "Light screens and the map in its normal colours"
+                        },
+                        onClick = { AppTheme.setLight(context, !AppTheme.isLight) }
                     )
                 }
             },

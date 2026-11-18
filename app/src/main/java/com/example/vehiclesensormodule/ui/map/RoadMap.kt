@@ -14,6 +14,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.vehiclesensormodule.BuildConfig
 import com.example.vehiclesensormodule.marking.GeoPoint
 import com.example.vehiclesensormodule.ui.theme.Accent
+import com.example.vehiclesensormodule.ui.theme.LocalPalette
 import com.example.vehiclesensormodule.ui.theme.Success
 import java.io.File
 import org.osmdroid.config.Configuration
@@ -67,6 +68,7 @@ fun RoadMap(
 ) {
     val context = LocalContext.current
     val mapView = remember { createMapView(context) }
+    val darkMode = LocalPalette.current.isDark
 
     DisposableEffect(mapView) {
         mapView.onResume()
@@ -82,7 +84,7 @@ fun RoadMap(
         factory = { mapView },
         modifier = modifier.clipToBounds(),
         update = { view ->
-            showMapStyle(view, satellite)
+            showMapStyle(view, satellite, darkMode)
             showOnMap(view, position, track, outline)
         }
     )
@@ -102,8 +104,6 @@ private fun createMapView(context: Context): MapView {
     return MapView(context).apply {
         setTileSource(TileSourceFactory.MAPNIK)
 
-        overlayManager.tilesOverlay.setColorFilter(darkMapFilter())
-
         // Otherwise the map looks tiny on a sharp phone screen
         isTilesScaledToDpi = true
 
@@ -114,15 +114,16 @@ private fun createMapView(context: Context): MapView {
     }
 }
 
-private fun showMapStyle(view: MapView, satellite: Boolean) {
+private fun showMapStyle(view: MapView, satellite: Boolean, darkMode: Boolean) {
     val source = if (satellite) ESRI_SATELLITE else TileSourceFactory.MAPNIK
 
     if (view.tileProvider.tileSource != source) {
         view.setTileSource(source)
-
-        // Photos stay as they are; the street map is darkened to match the app
-        view.overlayManager.tilesOverlay.setColorFilter(if (satellite) null else darkMapFilter())
     }
+
+    // Photos stay as they are. The street map is darkened in dark mode, and
+    // shown in its normal colours in light mode.
+    view.overlayManager.tilesOverlay.setColorFilter(if (!satellite && darkMode) darkMapFilter() else null)
 }
 
 // Turns the standard light map into a dark navy one, as the website does
