@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Connected Vehicle</string>
-    <string name="share_tile_label">Share position</string>
+    <string name="share_tile_label">Drive Mode</string>
 </resources>

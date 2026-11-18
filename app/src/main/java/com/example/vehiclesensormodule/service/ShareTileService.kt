@@ -7,14 +7,15 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.example.vehiclesensormodule.MainActivity
+import com.example.vehiclesensormodule.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
- * A "Share position" button in the phone's Quick Settings, so the driver
- * can connect or disconnect without finding the app.
+ * A "Drive Mode" button in the phone's Quick Settings, so the driver can
+ * connect or disconnect without finding the app.
  *
  * Android only lets an app start location tracking while it's on screen, so
  * turning sharing on opens the app, which then connects by itself. Turning
@@ -56,6 +57,7 @@ class ShareTileService : TileService() {
         val tile = qsTile ?: return
 
         tile.state = if (on) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        tile.label = getString(R.string.share_tile_label)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             tile.subtitle = if (on) "On" else "Off"

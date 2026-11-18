@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +27,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
@@ -46,6 +48,7 @@ import com.example.vehiclesensormodule.network.VehicleTypeRequest
 import com.example.vehiclesensormodule.network.readableError
 import com.example.vehiclesensormodule.screen.DriveState
 import com.example.vehiclesensormodule.screen.MainScreen
+import com.example.vehiclesensormodule.screen.MarkRoadScreen
 import com.example.vehiclesensormodule.service.TrackingState
 import com.example.vehiclesensormodule.service.VehicleTrackingService
 import com.example.vehiclesensormodule.ui.theme.VehicleSensorModuleTheme
@@ -616,46 +619,69 @@ class MainActivity : ComponentActivity() {
 
         val fixTime = tracking.lastFixAt
 
+        var markingRoad by rememberSaveable {
+            mutableStateOf(false)
+        }
+
+        val driveState = DriveState(
+
+            username = sessionManager.getUsername().orEmpty(),
+
+            vehicleId = tracking.vehicleId,
+
+            backendConnected = tracking.backendConnected,
+
+            locationAllowed = locationPermissionGranted || !connectAfterPermission,
+
+            sharingOn = tracking.running,
+
+            vehicleType = vehicleType,
+
+            vehicleTypeError = vehicleTypeError,
+
+            phoneLocationOn = phoneLocationOn,
+
+            batteryLimited = batteryLimited,
+
+            batterySaverOn = batterySaverOn,
+
+            hasRecentFix =
+            fixTime != null && now - fixTime < GPS_FIX_TIMEOUT_MS,
+
+            latitude = tracking.latitude,
+            longitude = tracking.longitude,
+
+            accuracyMetres = tracking.accuracyMetres,
+
+            heading = tracking.heading,
+
+            sensors = tracking.sensors,
+
+            marking = tracking.marking,
+
+            markedLengthM = RoadOutline.lengthMetres(tracking.markedTrack)
+        )
+
+        if (markingRoad) {
+            BackHandler { markingRoad = false }
+
+            MarkRoadScreen(
+                state = driveState,
+                track = tracking.markedTrack,
+                onBack = { markingRoad = false },
+                onConnect = ::connect,
+                onStart = TrackingState::startMarking,
+                onFinish = TrackingState::finishMarking,
+                onDiscard = TrackingState::discardMarking,
+                onSend = ::sendRoadSuggestion
+            )
+
+            return
+        }
+
         MainScreen(
 
-            state = DriveState(
-
-                username = sessionManager.getUsername().orEmpty(),
-
-                vehicleId = tracking.vehicleId,
-
-                backendConnected = tracking.backendConnected,
-
-                locationAllowed = locationPermissionGranted || !connectAfterPermission,
-
-                sharingOn = tracking.running,
-
-                vehicleType = vehicleType,
-
-                vehicleTypeError = vehicleTypeError,
-
-                phoneLocationOn = phoneLocationOn,
-
-                batteryLimited = batteryLimited,
-
-                batterySaverOn = batterySaverOn,
-
-                hasRecentFix =
-                fixTime != null && now - fixTime < GPS_FIX_TIMEOUT_MS,
-
-                latitude = tracking.latitude,
-                longitude = tracking.longitude,
-
-                accuracyMetres = tracking.accuracyMetres,
-
-                heading = tracking.heading,
-
-                sensors = tracking.sensors,
-
-                marking = tracking.marking,
-
-                markedLengthM = RoadOutline.lengthMetres(tracking.markedTrack)
-            ),
+            state = driveState,
 
             onAllowLocation = ::requestLocationPermission,
 
@@ -680,13 +706,7 @@ class MainActivity : ComponentActivity() {
                 error
             },
 
-            onStartMarking = TrackingState::startMarking,
-
-            onFinishMarking = TrackingState::finishMarking,
-
-            onDiscardMarking = TrackingState::discardMarking,
-
-            onSendRoad = ::sendRoadSuggestion,
+            onOpenMarkRoad = { markingRoad = true },
 
             onOpenLocationSettings = ::openLocationSettings,
 

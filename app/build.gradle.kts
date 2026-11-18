@@ -68,6 +68,9 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+
+    // OpenStreetMap maps, for the Mark a narrow road page
+    implementation(libs.osmdroid)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
