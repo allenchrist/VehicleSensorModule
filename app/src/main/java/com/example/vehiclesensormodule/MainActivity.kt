@@ -39,11 +39,13 @@ import com.example.vehiclesensormodule.auth.SignupScreen
 import com.example.vehiclesensormodule.marking.RoadOutline
 import com.example.vehiclesensormodule.model.VehicleType
 import com.example.vehiclesensormodule.network.ApiClient
+import com.example.vehiclesensormodule.network.AppUpdate
 import com.example.vehiclesensormodule.network.CONNECTION_ERROR_MESSAGE
 import com.example.vehiclesensormodule.network.DeleteAccountRequest
 import com.example.vehiclesensormodule.network.DeviceAssociationRequest
 import com.example.vehiclesensormodule.network.DeviceIdentity
 import com.example.vehiclesensormodule.network.RoadSuggestionRequest
+import com.example.vehiclesensormodule.network.UpdateCheck
 import com.example.vehiclesensormodule.network.VehicleTypeRequest
 import com.example.vehiclesensormodule.network.readableError
 import com.example.vehiclesensormodule.screen.DriveState
@@ -354,6 +356,15 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    /** Opens a page in the browser, such as the new version to download. */
+    private fun openWebPage(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: ActivityNotFoundException) {
+            Log.w(TAG, "No browser to open $url")
+        }
+    }
+
     private fun openAppSettings() {
         startActivity(
             Intent(
@@ -625,6 +636,18 @@ class MainActivity : ComponentActivity() {
             loadVehicleType()
         }
 
+        // Builds from Android Studio are signed with a different key, so
+        // Android wouldn't install a published version over them
+        var update by remember {
+            mutableStateOf<AppUpdate?>(null)
+        }
+
+        LaunchedEffect(Unit) {
+            if (!BuildConfig.DEBUG) {
+                update = UpdateCheck.newerVersion()
+            }
+        }
+
         LaunchedEffect(locationPermissionGranted, connectAfterPermission) {
             if (locationPermissionGranted && connectAfterPermission) {
                 connectAfterPermission = false
@@ -723,6 +746,10 @@ class MainActivity : ComponentActivity() {
             },
 
             onOpenMarkRoad = { markingRoad = true },
+
+            update = update,
+
+            onUpdate = { openWebPage(it.downloadUrl) },
 
             onOpenLocationSettings = ::openLocationSettings,
 

@@ -26,8 +26,11 @@ android {
         applicationId = "com.example.vehiclesensormodule"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Set by the Release workflow on GitHub, so each published version is
+        // newer than the last and the app can tell an update is available.
+        // Builds made in Android Studio are version 1.
+        versionCode = System.getenv("APP_VERSION_CODE")?.toInt() ?: 1
+        versionName = System.getenv("APP_VERSION_NAME") ?: "1.0"
     }
 
     signingConfigs {

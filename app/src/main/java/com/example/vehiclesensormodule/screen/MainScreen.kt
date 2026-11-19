@@ -58,6 +58,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
 import com.example.vehiclesensormodule.model.VehicleType
+import com.example.vehiclesensormodule.network.AppUpdate
 import com.example.vehiclesensormodule.sensors.compassPoint
 import com.example.vehiclesensormodule.service.MarkingStage
 import com.example.vehiclesensormodule.service.SensorReadings
@@ -160,7 +161,9 @@ fun MainScreen(
     onOpenLocationSettings: () -> Unit = {},
     onAllowNoBatteryLimits: () -> Unit = {},
     onOpenBatterySaver: () -> Unit = {},
-    onOpenMarkRoad: () -> Unit = {}
+    onOpenMarkRoad: () -> Unit = {},
+    update: AppUpdate? = null,
+    onUpdate: (AppUpdate) -> Unit = {}
 ) {
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
@@ -180,6 +183,10 @@ fun MainScreen(
                 onLogout = { confirmLogout = true },
                 onOpenAccount = { showAccount = true }
             )
+
+            if (update != null) {
+                UpdateCard(update = update, onUpdate = { onUpdate(update) })
+            }
 
             StatusHero(
                 status = status,
@@ -842,6 +849,31 @@ private fun ConnectionCard(state: DriveState) {
             label = "Heading",
             value = if (state.sharingOn) compassPoint(state.heading) else "—"
         )
+    }
+}
+
+/** A newer version of the app has been published. */
+@Composable
+private fun UpdateCard(update: AppUpdate, onUpdate: () -> Unit) {
+    AppCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Update available",
+                    style = MaterialTheme.typography.titleSmall
+                )
+
+                Text(
+                    text = "${update.versionName}. Download it, then open it to install.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+
+            TextButton(onClick = onUpdate) {
+                Text("Update")
+            }
+        }
     }
 }
 

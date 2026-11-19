@@ -6,7 +6,9 @@ We can't modify a real car, so this app stands in for its connectivity module. I
 
 ## Install it
 
-You need [Android Studio](https://developer.android.com/studio) and an Android phone running Android 7.0 or newer with USB debugging on.
+The easiest way: on the phone, download [connected-vehicle.apk](https://github.com/allenchrist/VehicleSensorModule/releases/latest/download/connected-vehicle.apk), open it, and allow installing from the browser if Android asks. The car screen's login page has the same link. When a newer version is published, the app shows **Update available** on its home screen.
+
+To install from Android Studio instead, you need [Android Studio](https://developer.android.com/studio) and an Android phone running Android 7.0 or newer with USB debugging on.
 
 1. Open this folder in Android Studio and wait for it to finish syncing.
 2. Connect the phone and press **Run**.
@@ -33,6 +35,19 @@ keyPassword=your password
 Build it with `gradlew.bat :app:assembleRelease`. The file is at `app/build/outputs/apk/release/app-release.apk`.
 
 Keep the key and its password safe. A phone can only update the app with the same key, so a lost key means uninstalling and installing again. For the same reason, a phone with the testing version must uninstall it first, which logs it out.
+
+## Publish a new version
+
+GitHub can build, sign and publish the app, so anyone can download it and phones see the update. It needs the release key in the repository's secrets, added once under **Settings**, **Secrets and variables**, **Actions**:
+
+| Secret | What goes in it |
+| --- | --- |
+| `RELEASE_KEYSTORE_BASE64` | `release.jks` as text. In PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.jks")) | Set-Clipboard`, then paste |
+| `RELEASE_STORE_PASSWORD` | The key file's password |
+| `RELEASE_KEY_ALIAS` | `connected-vehicle` |
+| `RELEASE_KEY_PASSWORD` | The key's password |
+
+Then, for each new version, open **Actions**, **Release**, **Run workflow**. It runs the checks, builds the app and publishes it as a release with `connected-vehicle.apk`. Each run is one version newer. Builds from Android Studio are version 1 and never show **Update available**, as Android won't install a version signed with a different key over them.
 
 ## Use it
 
