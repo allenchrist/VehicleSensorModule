@@ -752,11 +752,9 @@ private fun VehicleCard(state: DriveState, onChangeVehicleType: (VehicleType) ->
                 )
 
                 Text(
-                    text = when {
-                        type == null -> "Loading…"
-                        state.vehicleId.isEmpty() -> type.label
-                        else -> state.vehicleId.replace("VEHICLE_", "${type.label} ")
-                    },
+                    // Just the type. The server's vehicle number is only
+                    // for telling phones apart, so it isn't shown.
+                    text = type?.label ?: "Loading…",
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1
                 )
