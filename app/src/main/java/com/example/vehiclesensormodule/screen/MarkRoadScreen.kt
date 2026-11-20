@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,6 +78,11 @@ fun MarkRoadScreen(
     var naming by rememberSaveable { mutableStateOf(false) }
     var sent by rememberSaveable { mutableStateOf(false) }
     var satellite by rememberSaveable { mutableStateOf(false) }
+    var recentre by remember { mutableIntStateOf(0) }
+
+    // While recording, the map keeps following you. Otherwise you can move
+    // it to look over the road, and come back with the location button.
+    val recording = state.marking == MarkingStage.Recording
 
     val position =
         if (state.sharingOn && state.hasRecentFix) GeoPoint(state.latitude, state.longitude) else null
@@ -112,8 +118,19 @@ fun MarkRoadScreen(
                     track = track,
                     outline = outline,
                     satellite = satellite,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    follow = recording,
+                    recentre = recentre
                 )
+
+                if (!recording && position != null) {
+                    MyLocationButton(
+                        onClick = { recentre++ },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(12.dp)
+                    )
+                }
 
                 MapStyleSwitch(
                     satellite = satellite,
@@ -123,7 +140,7 @@ fun MarkRoadScreen(
                         .padding(12.dp)
                 )
 
-                if (state.marking == MarkingStage.Recording) {
+                if (recording) {
                     RecordingBadge(
                         metres = state.markedLengthM.toInt(),
                         modifier = Modifier
@@ -188,6 +205,26 @@ private fun MapStyleSwitch(satellite: Boolean, onChange: (Boolean) -> Unit, modi
                     Text(label, style = MaterialTheme.typography.labelLarge)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MyLocationButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(48.dp),
+        shape = CircleShape,
+        color = SurfaceRaised,
+        border = BorderStroke(1.dp, OutlineSubtle)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(R.drawable.ic_my_location),
+                contentDescription = "Go to my location",
+                tint = Accent,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }

@@ -55,8 +55,12 @@ private val ESRI_SATELLITE =
     }
 
 /**
- * A map following your position, with the track recorded so far and, once
- * finished, the road shape that will be sent.
+ * A map with your position, the track recorded so far and, once finished,
+ * the road shape that will be sent.
+ *
+ * While [follow] is on, the map keeps your position in the middle. Otherwise
+ * it can be moved freely: it only comes to your position once at the start,
+ * and again each time [recentre] goes up, such as from a button.
  */
 @Composable
 fun RoadMap(
@@ -64,10 +68,13 @@ fun RoadMap(
     track: List<GeoPoint>,
     outline: List<List<Double>>?,
     satellite: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    follow: Boolean = true,
+    recentre: Int = 0
 ) {
     val context = LocalContext.current
     val mapView = remember { createMapView(context) }
+    val centring = remember { Centring() }
     val darkMode = LocalPalette.current.isDark
 
     DisposableEffect(mapView) {
@@ -86,8 +93,28 @@ fun RoadMap(
         update = { view ->
             showMapStyle(view, satellite, darkMode)
             showOnMap(view, position, track, outline)
+
+            if (position != null && centring.shouldCentre(follow, recentre)) {
+                view.controller.animateTo(MapPoint(position.latitude, position.longitude))
+            }
         }
     )
+}
+
+/** Remembers whether the map has come to your position, and for which button press. */
+private class Centring {
+    private var centred = false
+    private var lastRecentre = 0
+
+    fun shouldCentre(follow: Boolean, recentre: Int): Boolean {
+        val asked = recentre != lastRecentre
+        val centre = follow || !centred || asked
+
+        centred = centred || centre
+        lastRecentre = recentre
+
+        return centre
+    }
 }
 
 private fun createMapView(context: Context): MapView {
@@ -176,8 +203,6 @@ private fun showOnMap(view: MapView, position: GeoPoint?, track: List<GeoPoint>,
             outlinePaint.strokeWidth = 2 * dp
             setOnClickListener { _, _, _ -> true }
         }
-
-        view.controller.animateTo(here)
     }
 
     // The map's credits, which its licence requires
