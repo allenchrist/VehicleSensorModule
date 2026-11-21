@@ -75,6 +75,9 @@ class VehicleWebSocketClient(context: Context) {
     // Vehicle assigned by backend
     var onVehicleAssigned: ((String) -> Unit)? = null
 
+    // The ghat road the car is on, for Mountain Mode, or null when off one
+    var onMountainChanged: ((String?) -> Unit)? = null
+
     init {
 
         deviceId = DeviceIdentity.get(context)
@@ -396,6 +399,16 @@ class VehicleWebSocketClient(context: Context) {
 
                     onVehicleAssigned?.invoke(
                         assignedVehicleId
+                    )
+                }
+
+                // --------------------------------------
+                // On or off a ghat road
+                // --------------------------------------
+
+                "mountain" -> {
+                    onMountainChanged?.invoke(
+                        if (json.isNull("roadName")) null else json.optString("roadName")
                     )
                 }
 

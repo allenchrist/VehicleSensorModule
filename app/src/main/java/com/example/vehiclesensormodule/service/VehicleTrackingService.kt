@@ -222,11 +222,21 @@ class VehicleTrackingService : Service() {
         vehicleClient.authToken = token
 
         vehicleClient.onConnectionChanged = { connected ->
-            TrackingState.update { it.copy(backendConnected = connected) }
+            // Without the server, it can't say whether the car is on a ghat road
+            TrackingState.update {
+                it.copy(
+                    backendConnected = connected,
+                    hillRoadName = if (connected) it.hillRoadName else null
+                )
+            }
         }
 
         vehicleClient.onVehicleAssigned = { vehicleId ->
             TrackingState.update { it.copy(vehicleId = vehicleId) }
+        }
+
+        vehicleClient.onMountainChanged = { roadName ->
+            TrackingState.update { it.copy(hillRoadName = roadName) }
         }
 
         vehicleClient.onAuthorizationRejected = {

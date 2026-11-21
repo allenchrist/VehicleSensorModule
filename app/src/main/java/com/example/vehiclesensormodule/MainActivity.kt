@@ -698,7 +698,9 @@ class MainActivity : ComponentActivity() {
 
             marking = tracking.marking,
 
-            markedLengthM = RoadOutline.lengthMetres(tracking.markedTrack)
+            markedLengthM = RoadOutline.lengthMetres(tracking.markedTrack),
+
+            hillRoadName = tracking.hillRoadName
         )
 
         if (markingRoad) {

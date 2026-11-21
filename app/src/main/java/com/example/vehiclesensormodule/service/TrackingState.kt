@@ -37,7 +37,9 @@ data class TrackingSnapshot(
     val sensors: SensorReadings = SensorReadings(),
     val lastFixAt: Long? = null,
     val marking: MarkingStage = MarkingStage.Off,
-    val markedTrack: List<GeoPoint> = emptyList()
+    val markedTrack: List<GeoPoint> = emptyList(),
+    // The ghat road the server says the car is on, for Mountain Mode
+    val hillRoadName: String? = null
 )
 
 /**

@@ -54,6 +54,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.vehiclesensormodule.R
@@ -103,7 +104,8 @@ data class DriveState(
     val heading: Float,
     val sensors: SensorReadings,
     val marking: MarkingStage = MarkingStage.Off,
-    val markedLengthM: Double = 0.0
+    val markedLengthM: Double = 0.0,
+    val hillRoadName: String? = null
 )
 
 private enum class DriveStatus(val color: Color, val title: String, val detail: String) {
@@ -196,6 +198,10 @@ fun MainScreen(
                 onDisconnect = onDisconnect,
                 onOpenLocationSettings = onOpenLocationSettings
             )
+
+            if (status == DriveStatus.Live && state.hillRoadName != null) {
+                MountainModeLine(roadName = state.hillRoadName)
+            }
 
             if (state.batterySaverOn) {
                 PowerWarningCard(
@@ -871,6 +877,41 @@ private fun UpdateCard(update: AppUpdate, onUpdate: () -> Unit) {
             TextButton(onClick = onUpdate) {
                 Text("Update")
             }
+        }
+    }
+}
+
+/**
+ * On a ghat road, says Mountain Mode is on. Only a status: the bend warnings
+ * show on the car screen.
+ */
+@Composable
+private fun MountainModeLine(roadName: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Accent.copy(alpha = 0.1f),
+        border = BorderStroke(1.dp, Accent.copy(alpha = 0.35f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_mountain),
+                contentDescription = null,
+                tint = Accent,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Text(
+                text = "Mountain Mode · $roadName",
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
